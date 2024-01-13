@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
 
-const DEFAULT_DURATION: u64 = 25 * 60;
+const DEFAULT_DURATION: i64 = 25 * 60;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TimerState {
@@ -15,18 +15,16 @@ pub enum TimerState {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TimerInfo {
     pub state: TimerState,
-    pub start_time: u64,
-    pub pause_time: u64,
-    pub duration: u64,
+    pub start_time: i64,
+    pub duration: i64,
     pub silent: bool,
 }
 impl Default for TimerInfo {
     fn default() -> Self {
-        let start_time = chrono::Utc::now().timestamp() as u64;
+        let start_time = chrono::Utc::now().timestamp();
         Self {
             state: TimerState::Stopped,
             start_time,
-            pause_time: start_time,
             duration: DEFAULT_DURATION,
             silent: false,
         }
@@ -38,8 +36,7 @@ impl TimerInfo {
         if let Some(d) = &args.duration {
             timer_info.duration = parse_duration(&d);
         }
-        timer_info.start_time = chrono::Utc::now().timestamp() as u64;
-        timer_info.pause_time = timer_info.start_time;
+        timer_info.start_time = chrono::Utc::now().timestamp();
         timer_info.silent = args.silent;
         timer_info
     }
@@ -59,22 +56,16 @@ impl TimerInfo {
         self.get_time_left() == 0
     }
 
-    pub fn get_time_left(&self) -> u64 {
-        let now = chrono::Utc::now().timestamp() as u64;
+    pub fn get_time_left(&self) -> i64 {
+        let now = chrono::Utc::now().timestamp();
         let time_left = self.start_time + self.duration - now;
-        if time_left > 0 {
-            return time_left;
-        }
-        0
+        return i64::max(0, time_left);
     }
 
-    pub fn get_time_elapsed(&self) -> u64 {
-        let now = chrono::Utc::now().timestamp() as u64;
+    pub fn get_time_elapsed(&self) -> i64 {
+        let now = chrono::Utc::now().timestamp();
         let time_elapsed = now - self.start_time;
-        if time_elapsed > 0 {
-            return time_elapsed;
-        }
-        0
+        return i64::max(0, time_elapsed);
     }
 
     pub fn write_to_file(&self) {

@@ -1,6 +1,6 @@
 use crate::args::*;
 use crate::timer_info::{TimerInfo, TimerState};
-use crate::utils::get_human_readable_time;
+use crate::utils::*;
 use notify_rust::Notification;
 
 pub fn run(args: &Args) {
@@ -9,13 +9,20 @@ pub fn run(args: &Args) {
             reset_timer(&args);
         }
         SubCommand::Start => {
-            start_timer(&args);
+            if args.toggle {
+                toggle_start_stop();
+            } else {
+                start_timer();
+            }
         }
         SubCommand::Stop => {
             stop_timer();
         }
         SubCommand::Status => {
             status(&args);
+        }
+        SubCommand::Add => {
+            add_time(&args);
         }
     }
 }
@@ -25,28 +32,33 @@ pub fn reset_timer(args: &Args) {
     timer_info.write_to_file();
 }
 
-pub fn start_timer(args: &Args) {
+pub fn start_timer() {
     let mut timer_info = TimerInfo::from_file();
-    if timer_info.is_finished() {
-        println!("Timer is already finished. Reset it first.");
-        return;
-    } else if timer_info.state == TimerState::Running && !args.toggle {
-        println!("Timer is already running.");
-        return;
-    }
-    let now = chrono::Utc::now().timestamp() as u64;
-    let elapsed_during_pause: i64 = (now - timer_info.pause_time) as i64;
-    timer_info.start_time += elapsed_during_pause as u64;
-    timer_info.pause_time = timer_info.start_time;
+    timer_info.start_time = chrono::Utc::now().timestamp();
     timer_info.state = TimerState::Running;
     timer_info.write_to_file();
 }
 
 pub fn stop_timer() {
     let mut timer_info = TimerInfo::from_file();
-    timer_info.pause_time = chrono::Utc::now().timestamp() as u64;
     timer_info.state = TimerState::Stopped;
     timer_info.write_to_file();
+}
+
+pub fn toggle_start_stop() {
+    let mut timer_info = TimerInfo::from_file();
+    match timer_info.state {
+        TimerState::Stopped => {
+            start_timer();
+        }
+        TimerState::Running => {
+            let now = chrono::Utc::now().timestamp();
+            let elapsed = now - timer_info.start_time;
+            timer_info.duration -= elapsed;
+            timer_info.write_to_file();
+            stop_timer();
+        }
+    }
 }
 
 pub fn status(args: &Args) {
@@ -64,7 +76,7 @@ pub fn status(args: &Args) {
                 stop_timer();
                 return;
             }
-            let remaining = timer_info.duration - elapsed as u64;
+            let remaining = timer_info.duration - elapsed;
             match args.format {
                 Some(StatusFormat::Human) => println!("{}", get_human_readable_time(remaining)),
                 _ => {
@@ -72,6 +84,14 @@ pub fn status(args: &Args) {
                 }
             }
         }
+    }
+}
+
+pub fn add_time(args: &Args) {
+    if let Some(duration) = &args.duration {
+        let mut timer_info = TimerInfo::from_file();
+        timer_info.duration += parse_duration(duration);
+        timer_info.write_to_file();
     }
 }
 

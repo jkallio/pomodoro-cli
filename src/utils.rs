@@ -9,8 +9,8 @@ pub fn get_state_file() -> PathBuf {
 }
 
 /// The duration can be passed either as a number (as minutes) or as string in the format of "1h 30m 10s"
-pub fn parse_duration(duration: &str) -> u64 {
-    if let Ok(duration) = duration.parse::<u64>() {
+pub fn parse_duration(duration: &str) -> i64 {
+    if let Ok(duration) = duration.parse::<i64>() {
         return duration * 60;
     }
 
@@ -45,7 +45,7 @@ pub fn parse_duration(duration: &str) -> u64 {
     hours * 60 * 60 + minutes * 60 + seconds
 }
 
-pub fn get_human_readable_time(seconds: u64) -> String {
+pub fn get_human_readable_time(seconds: i64) -> String {
     let mut seconds = seconds;
     let hours = seconds / 3600;
     seconds -= hours * 3600;

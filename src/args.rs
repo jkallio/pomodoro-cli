@@ -37,6 +37,7 @@ pub enum SubCommand {
     Start,
     Stop,
     Status,
+    Add,
 }
 
 #[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]

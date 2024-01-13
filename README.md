@@ -10,30 +10,73 @@ TODO
 
 ## Features
 
+### Configure the timer
+
 ```bash
-# Start a new timer (default duration is 25 minutes)
-pomo start
+# Reset the timer with the default values
+$ pomodoro-cli reset --default
 
-# Stop the active timer 
-pomo stop
-
-# Start a new timer with the same duration as the previous one
-pomo restart
-
-# Start a new timer with a custom duration
-pomo start --duration 1h30m15s 
-
-# Start a new timer with a custom task name
-pomo start --task "Time to work!"
-
-# Wait until the timer is finished
-pomo start --wait
-
-# Trigger notification alert when the timer is finished
-pomo start --notify "Time to take a break!"
-
-# Get the current timer status
-pomo status
+# Reset the timer with custom values
+$ pomodoro-cli reset --duration 25m --notify true --silent false --wait false
 ```
 
+### Start/Stop the timer
+
+```bash
+# Start the timer
+$ pomodoro-cli start
+
+# Stop the timer
+$ pomodoro-cli stop
+
+# Toggle the timer (start/stop)
+$ pomodoro-cli start --toggle
+```
+
+## Query the timer status
+
+```bash
+# Get remaining time in seconds (This is the default behavior for `status`)
+$ pomodoro-cli status --format seconds
+
+## Get remaining time in human readable format
+$ pomodoro-cli status --format human
+```
+
+### Wait for the timer to finish
+
+```bash
+# Wait until the timer is finished
+$ pomodoro-cli start --wait
+```
+
+### Trigger notification when the timer is finished
+
+```bash
+# Trigger notification alert when the timer is finished
+pomo start --notify "Time to take a break!"
+```
+
+### Restart the timer with the previous configuration
+
+```bash
+# Start a new timer with the previous configuration
+pomo restart
+```
+
+## Waybar integration
+
+Just add the following module to your waybar configuration:
+
+```json
+"custom/pomo": {
+    "format": "  {}",
+    "tooltip": false,
+    "exec": "pomodoro-cli status --human",
+    "on-click": "pomodoro-cli start --toggle",
+    "on-click-right": "pomodoro-cli reset --default",
+    "on-click-right": "pomodoro-cli add 5m",
+    "interval": 1
+}
+```
 

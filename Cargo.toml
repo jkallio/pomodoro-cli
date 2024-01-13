@@ -1,0 +1,17 @@
+[package]
+name = "pomodoro-cli"
+version = "0.1.0"
+authors = ["Jussi Kallio <jkallio@gmail.com>"]
+edition = "2021"
+
+[[bin]]
+name = "pomodoro-cli"
+
+[dependencies]
+chrono = "0.4"
+notify-rust = "4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "5"
+clap = { version = "4", features = ["derive", "cargo"] }
+clap_complete = "4"

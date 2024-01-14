@@ -8,6 +8,33 @@ pub fn get_state_file() -> PathBuf {
     path
 }
 
+/// Return the path to the custom audio file for the alarm. This is the config directory on Linux and RoamingAppData on Windows.
+/// In case the audio file is not found, `None` is returned.
+pub fn get_custom_alarm_file() -> Option<PathBuf> {
+    if let Some(mut path) = dirs::config_dir() {
+        path.push("pomodoro-cli");
+        path.push("alarm.mp3");
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// Return the path to the custom icon file for the notification. This is the config directory on Linux and RoamingAppData on Windows.
+/// In case the icon file is not found, `None` is returned.
+/// The icon file must be a PNG file.
+pub fn get_custom_icon_file() -> Option<PathBuf> {
+    if let Some(mut path) = dirs::config_dir() {
+        path.push("pomodoro-cli");
+        path.push("icon.png");
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    None
+}
+
 /// The duration can be passed either as a number (as minutes) or as string in the format of "1h 30m 10s"
 pub fn parse_duration(duration: &str) -> i64 {
     if let Ok(duration) = duration.parse::<i64>() {

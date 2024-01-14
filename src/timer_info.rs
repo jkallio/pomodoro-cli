@@ -103,4 +103,23 @@ mod tests {
         assert!(TimerInfo::info_file_exists());
         TimerInfo::remove_info_file();
     }
+
+    #[test]
+    fn test_time_left() {
+        let now = chrono::Utc::now().timestamp();
+        let mut timer_info = TimerInfo::default();
+        timer_info.start_time = now - 10;
+        timer_info.duration = 20;
+        assert_eq!(timer_info.get_time_left(), 10);
+        assert_eq!(timer_info.is_finished(), false);
+    }
+
+    #[test]
+    fn test_time_elapsed() {
+        let now = chrono::Utc::now().timestamp();
+        let mut timer_info = TimerInfo::default();
+        timer_info.start_time = now - 10;
+        timer_info.duration = 20;
+        assert_eq!(timer_info.get_time_elapsed(), 10);
+    }
 }

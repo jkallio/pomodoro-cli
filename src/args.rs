@@ -26,9 +26,6 @@ pub struct Args {
 
     #[clap(long, default_value_t = false, global = true)]
     pub default: bool,
-
-    #[clap(long, default_value_t = false, global = true)]
-    pub toggle: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -36,6 +33,7 @@ pub enum SubCommand {
     Reset,
     Start,
     Stop,
+    Toggle,
     Status,
     Add,
 }

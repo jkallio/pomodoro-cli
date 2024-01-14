@@ -15,3 +15,10 @@ serde_json = "1"
 dirs = "5"
 clap = { version = "4", features = ["derive", "cargo"] }
 tokio = { version = "1", features = ["full"] }
+rodio = "0.17.3"
+
+[profile.release]
+strip = true        # Automatically strip symbols from the binary.
+opt-level = "z"     # Optimize for binary size.
+lto = true          # Enable Link Time Optimization.
+panic = "abort"     # Abort on panic. (Removes backtrace info.)

@@ -4,35 +4,50 @@ use crate::utils::*;
 use notify_rust::Notification;
 use rodio::{Decoder, Source};
 
-pub fn run(args: &Args) {
-    match args.subcmd {
-        SubCommand::Reset => {
-            reset_timer(&args);
+pub fn run(args: &Cli) {
+    match &args.subcmd {
+        SubCommand::Reset {
+            duration,
+            silent,
+            default,
+        } => {
+            reset_timer(parse_duration(duration.clone()), *silent, *default);
         }
-        SubCommand::Start => {
-            start_timer();
+        SubCommand::Start { wait } => {
+            start_timer(*wait);
         }
         SubCommand::Stop => {
             stop_timer();
         }
-        SubCommand::Toggle => {
-            toggle_timer();
+        SubCommand::Toggle { wait } => {
+            toggle_timer(*wait);
         }
-        SubCommand::Status => {
-            status(&args);
+        SubCommand::Status { format } => {
+            let format = match *format {
+                Some(StatusFormat::Human) => StatusFormat::Human,
+                _ => StatusFormat::Seconds,
+            };
+            get_status(format);
         }
-        SubCommand::Add => {
-            add_time(&args);
+        SubCommand::Add { duration } => {
+            add_time_to_timer(parse_duration(duration.clone()));
         }
     }
 }
 
-pub fn reset_timer(args: &Args) {
-    let timer_info = TimerInfo::from_args(args);
+pub fn reset_timer(duration: i64, silent: bool, default: bool) {
+    let timer_info = if default {
+        TimerInfo::default()
+    } else {
+        let mut timer_info = TimerInfo::from_file();
+        timer_info.duration = duration;
+        timer_info.silent = silent;
+        timer_info
+    };
     timer_info.write_to_file();
 }
 
-pub fn start_timer() {
+pub fn start_timer(wait: bool) {
     let mut timer_info = TimerInfo::from_file();
     timer_info.start_time = chrono::Utc::now().timestamp();
     timer_info.state = TimerState::Running;
@@ -41,15 +56,18 @@ pub fn start_timer() {
 
 pub fn stop_timer() {
     let mut timer_info = TimerInfo::from_file();
+    let now = chrono::Utc::now().timestamp();
+    let elapsed = now - timer_info.start_time;
+    timer_info.duration -= elapsed;
     timer_info.state = TimerState::Stopped;
     timer_info.write_to_file();
 }
 
-pub fn toggle_timer() {
+pub fn toggle_timer(wait: bool) {
     let mut timer_info = TimerInfo::from_file();
     match timer_info.state {
         TimerState::Stopped => {
-            start_timer();
+            start_timer(wait);
         }
         TimerState::Running => {
             let now = chrono::Utc::now().timestamp();
@@ -58,44 +76,6 @@ pub fn toggle_timer() {
             timer_info.write_to_file();
             stop_timer();
         }
-    }
-}
-
-pub fn status(args: &Args) {
-    let timer_info = TimerInfo::from_file();
-    let elapsed = timer_info.get_time_elapsed();
-
-    match timer_info.state {
-        TimerState::Stopped => {
-            if timer_info.is_finished() {
-                println!("Finished");
-                return;
-            }
-            println!("Stopped");
-            return;
-        }
-        TimerState::Running => {
-            if timer_info.is_finished() {
-                stop_timer();
-                trigger_notification(&timer_info);
-                return;
-            }
-            let remaining = timer_info.duration - elapsed;
-            match args.format {
-                Some(StatusFormat::Human) => println!("{}", get_human_readable_time(remaining)),
-                _ => {
-                    println!("{}", remaining);
-                }
-            }
-        }
-    }
-}
-
-pub fn add_time(args: &Args) {
-    if let Some(duration) = &args.duration {
-        let mut timer_info = TimerInfo::from_file();
-        timer_info.duration += parse_duration(duration);
-        timer_info.write_to_file();
     }
 }
 
@@ -120,6 +100,44 @@ pub fn trigger_notification(timer_info: &TimerInfo) {
         .show()
         .unwrap();
     trigger_audio_alarm();
+}
+
+pub fn get_status(format: StatusFormat) {
+    let timer_info = TimerInfo::from_file();
+    let elapsed = timer_info.get_time_elapsed();
+
+    match timer_info.state {
+        TimerState::Stopped => {
+            if timer_info.is_finished() {
+                println!("Finished");
+                return;
+            }
+            println!("Stopped");
+            return;
+        }
+        TimerState::Running => {
+            if timer_info.is_finished() {
+                stop_timer();
+                trigger_notification(&timer_info);
+                return;
+            }
+            let remaining = timer_info.duration - elapsed;
+            match format {
+                StatusFormat::Human => {
+                    println!("{}", get_human_readable_time(remaining))
+                }
+                StatusFormat::Seconds => {
+                    println!("{}", remaining);
+                }
+            }
+        }
+    }
+}
+
+pub fn add_time_to_timer(duration: i64) {
+    let mut timer_info = TimerInfo::from_file();
+    timer_info.duration += duration;
+    timer_info.write_to_file();
 }
 
 pub fn trigger_audio_alarm() {

@@ -1,10 +1,9 @@
-use crate::args::Args;
 use crate::utils::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
 
-const DEFAULT_DURATION: i64 = 25 * 60;
+pub const DEFAULT_DURATION: i64 = 25 * 60;
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TimerState {
@@ -31,16 +30,6 @@ impl Default for TimerInfo {
     }
 }
 impl TimerInfo {
-    pub fn from_args(args: &Args) -> Self {
-        let mut timer_info = Self::default();
-        if let Some(d) = &args.duration {
-            timer_info.duration = parse_duration(&d);
-        }
-        timer_info.start_time = chrono::Utc::now().timestamp();
-        timer_info.silent = args.silent;
-        timer_info
-    }
-
     pub fn from_file() -> Self {
         let path = get_state_file();
         if !path.exists() {

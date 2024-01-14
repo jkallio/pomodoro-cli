@@ -1,6 +1,6 @@
 <div align="center">
 
-# pomodoro-cli
+#  pomodoro-cli
 # Pomodoro Timer Command Line Interface
 
 Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
@@ -13,14 +13,14 @@ Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
 </div>
 
-## Installation
+# Installation
 
 TODO
 
 ## Compilation from source
 
 Pre-requisites:
-- [Rust](https://www.rust-lang.org/)
+- [Rust compilation tools](https://www.rust-lang.org/)
 
 ```bash
 $ git clone git@github.com:jkallio/pomodoro-cli.git 
@@ -29,7 +29,19 @@ $ cargo build --release
 $ cp target/release/pomodoro-cli /usr/local/bin/pomodoro-cli
 ```
 
-## Features
+# Features
+
+- [x] Start/Stop the Timer
+- [x] Reset the Timer with custom configuration
+- [x] Wait for the Timer to finish  
+- [x] Query the Timer status
+- [x] Triggers system notification when the Timer is finished
+- [x] Play alarm sound when the Timer is finished
+- [x] Easy Waybar integration
+- [x] Customize notification icon
+- [x] Customize alarm sound
+
+# Usage
 
 ### Configure the timer
 
@@ -54,7 +66,7 @@ $ pomodoro-cli stop
 $ pomodoro-cli toggle
 ```
 
-## Query the timer status
+### Query the timer status
 
 ```bash
 # Get remaining time in seconds (This is the default behavior for `status`)
@@ -71,21 +83,9 @@ $ pomodoro-cli status --format human
 $ pomodoro-cli start --wait
 ```
 
-### Trigger notification when the timer is finished
+# Customization
 
-```bash
-# Trigger notification alert when the timer is finished
-pomo start --notify "Time to take a break!"
-```
-
-### Restart the timer with the previous configuration
-
-```bash
-# Start a new timer with the previous configuration
-pomo restart
-```
-
-### Custom alarm sound
+## Set custom alarm sound
 
 If you want to use a custom alarm sound, just add a `alarm.mp3` file in the `~/.config/pomodoro-cli` directory.
 
@@ -94,7 +94,9 @@ $ mkdir -p ~/.config/pomodoro-cli
 $ cp /path/to/alarm.mp3 ~/.config/pomodoro-cli/alarm.mp3
 ```
 
-### Custom notification icon 
+## Set custom notification icon 
+
+![Waybar](./assets/screenshot_notification.png)
 
 If you want to use a custom notification icon, just add a `icon.png` file in the `~/.config/pomodoro-cli` directory.
 
@@ -103,9 +105,11 @@ $ mkdir -p ~/.config/pomodoro-cli
 $ cp /path/to/icon.png ~/.config/pomodoro-cli/icon.png
 ```
 
-## Waybar integration
+# Waybar integration
 
-Just add the following module to your waybar configuration:
+Add the following module to your waybar configuration:
+
+![Waybar](./assets/screenshot_waybar.png)
 
 ```json
 "custom/pomodoro": {
@@ -119,7 +123,7 @@ Just add the following module to your waybar configuration:
 }
 ```
 
-## Alternatives
+# Alternatives
 
 - [i3-gnome-pomodoro](https://github.com/kantord/i3-gnome-pomodoro)
 - [rust-cli-pomodoro](https://crates.io/crates/rust-cli-pomodoro)

@@ -1,20 +1,27 @@
 [package]
 name = "pomodoro-cli"
-version = "0.1.0"
+version = "0.9.0"
 authors = ["Jussi Kallio <jkallio@gmail.com>"]
+license = "MIT"
+description = "A simple pomodoro timer for the command line."
+readme = "README.md"
+homepage = "https://github.com/jkallio/pomodoro-cli"
+repository = "https://github.com/jkallio/pomodoro-cli"
+keywords = ["pomodoro", "timer"]
+categories = ["productivity", "command-line-utilities"]
 edition = "2021"
 
 [[bin]]
 name = "pomodoro-cli"
 
 [dependencies]
-chrono = "0.4"
-notify-rust = "4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-dirs = "5"
-clap = { version = "4", features = ["derive", "cargo"] }
-tokio = { version = "1", features = ["full"] }
+chrono = "0.4.31"
+notify-rust = "4.10.0"
+serde = { version = "1.0.195", features = ["derive"] }
+serde_json = "1.0.111"
+dirs = "5.0.1"
+clap = { version = "4.4.16", features = ["derive", "cargo"] }
+tokio = { version = "1.35.1", features = ["full"] }
 rodio = "0.17.3"
 
 [profile.release]

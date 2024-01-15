@@ -8,24 +8,29 @@ pub const DEFAULT_DURATION: i64 = 25 * 60;
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TimerState {
     Running,
-    Stopped,
+    Paused,
+    Finished,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TimerInfo {
     pub state: TimerState,
     pub start_time: i64,
+    pub pause_time: i64,
     pub duration: i64,
     pub silent: bool,
+    pub notify: bool,
 }
 impl Default for TimerInfo {
     fn default() -> Self {
         let start_time = chrono::Utc::now().timestamp();
         Self {
-            state: TimerState::Stopped,
+            state: TimerState::Paused,
             start_time,
+            pause_time: start_time,
             duration: DEFAULT_DURATION,
             silent: false,
+            notify: false,
         }
     }
 }
@@ -41,20 +46,24 @@ impl TimerInfo {
         serde_json::from_str(&contents).unwrap()
     }
 
-    pub fn is_finished(&self) -> bool {
-        self.get_time_left() == 0
+    pub fn is_running(&self) -> bool {
+        self.state == TimerState::Running
     }
 
     pub fn get_time_left(&self) -> i64 {
-        let now = chrono::Utc::now().timestamp();
-        let time_left = self.start_time + self.duration - now;
-        return i64::max(0, time_left);
+        self.duration - self.get_time_elapsed()
     }
 
     pub fn get_time_elapsed(&self) -> i64 {
-        let now = chrono::Utc::now().timestamp();
-        let time_elapsed = now - self.start_time;
-        return i64::max(0, time_elapsed);
+        match self.state {
+            TimerState::Finished => return self.duration,
+            TimerState::Paused => return self.pause_time - self.start_time,
+            TimerState::Running => {
+                let now = chrono::Utc::now().timestamp();
+                let time_elapsed = now - self.start_time;
+                return i64::max(0, time_elapsed);
+            }
+        }
     }
 
     pub fn write_to_file(&self) {
@@ -100,7 +109,6 @@ mod tests {
         timer_info.start_time = now - 10;
         timer_info.duration = 20;
         assert_eq!(timer_info.get_time_left(), 10);
-        assert_eq!(timer_info.is_finished(), false);
     }
 
     #[test]

@@ -4,7 +4,7 @@ use serde::Serialize;
 #[derive(Parser, Debug)]
 #[clap(
     name = "Pomodoro CLI",
-    version = "0.9.0",
+    version = "1.0.0",
     author = "Jussi Kallio",
     about = "Pomodoro timer is a simple timer that helps you to stay focused on your task."
 )]
@@ -15,32 +15,29 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum SubCommand {
-    Reset {
-        #[arg(short, long)]
-        duration: Option<String>,
-
-        #[arg(long, default_value_t = false)]
-        silent: bool,
-
-        #[arg(long, default_value_t = false)]
-        default: bool,
-    },
+    /// Start a new timer
     Start {
-        #[arg(long, default_value_t = false)]
-        wait: bool,
-    },
-    Stop,
-    Toggle {
-        #[arg(long, default_value_t = false)]
-        wait: bool,
-    },
-    Status {
-        #[arg(short, long)]
-        format: Option<StatusFormat>,
-    },
-    Add {
-        #[arg(short, long)]
+        #[arg(short, long, help = "Duration of the timer in format 1h30m20s")]
         duration: Option<String>,
+
+        #[arg(long, default_value_t = false, help = "Enable system notification")]
+        notify: bool,
+
+        #[arg(long, default_value_t = false, help = "Disable the alarm sound")]
+        silent: bool,
+    },
+    /// Stop the timer
+    Stop,
+    /// Pause/Resume the timer
+    Pause,
+    /// Get the current status of the timer
+    Status {
+        #[arg(
+            short,
+            long,
+            help = "Duration in seconds or human-readable format (default=seconds)"
+        )]
+        format: Option<StatusFormat>,
     },
 }
 

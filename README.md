@@ -32,8 +32,6 @@ $ cp target/release/pomodoro-cli /usr/local/bin/pomodoro-cli
 # Features
 
 - [x] Start/Stop the Timer
-- [x] Reset the Timer with custom configuration
-- [x] Wait for the Timer to finish  
 - [x] Query the Timer status
 - [x] Triggers system notification when the Timer is finished
 - [x] Play alarm sound when the Timer is finished
@@ -43,27 +41,20 @@ $ cp target/release/pomodoro-cli /usr/local/bin/pomodoro-cli
 
 # Usage
 
-### Configure the timer
-
-```bash
-# Reset the timer with the default values
-$ pomodoro-cli reset --default
-
-# Reset the timer with custom values
-$ pomodoro-cli reset --duration 25m --silent true --wait false
-```
-
 ### Start/Stop the timer
 
 ```bash
-# Start the timer
+# Start the timer with default configuration
 $ pomodoro-cli start
+
+# Start the timer with custom configuration
+$ pomodoro-cli start --duration "1h 30m 15s" --silent true
 
 # Stop the timer
 $ pomodoro-cli stop
 
-# Toggle the timer (start/stop)
-$ pomodoro-cli toggle
+# Pause the Timer (calling this command again will resume the timer)
+$ pomodoro-cli pause
 ```
 
 ### Query the timer status
@@ -74,13 +65,6 @@ $ pomodoro-cli status --format seconds
 
 ## Get remaining time in human readable format
 $ pomodoro-cli status --format human
-```
-
-### Wait for the timer to finish
-
-```bash
-# Wait until the timer is finished
-$ pomodoro-cli start --wait
 ```
 
 # Customization
@@ -119,6 +103,21 @@ Add the following module to your waybar configuration:
     "on-click": "pomodoro-cli toggle",
     "on-click-middle": "pomodoro-cli reset --duration 5m",
     "on-click-right": "pomodoro-cli add --duration 5m",
+    "interval": 1
+}
+```
+
+If you want to signal Waybar to update the module immediately when you click it, change use the following configuration:
+
+```json
+"custom/pomo": {
+    "format": "   {}",
+    "tooltip": false,
+    "exec": "pomodoro-cli status --format human",
+    "signal": 10,
+    "on-click": "pomodoro-cli start --duration 5m; pkill -SIGRTMIN+10 waybar",
+    "on-click-middle": "pomodoro-cli pause; pkill -SIGRTMIN+10 waybar",
+    "on-click-right": "pomodoro-cli stop; pkill -SIGRTMIN+10 waybar",
     "interval": 1
 }
 ```

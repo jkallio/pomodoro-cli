@@ -85,12 +85,20 @@ pub fn get_human_readable_time(seconds: i64) -> String {
 
     let mut time = String::new();
     if hours > 0 {
-        time.push_str(&format!("{}h ", hours));
+        time.push_str(&format!("{}h", hours));
     }
     if minutes > 0 {
-        time.push_str(&format!("{}m ", minutes));
+        if !time.is_empty() {
+            time.push_str(" ");
+        }
+        time.push_str(&format!("{}m", minutes));
     }
-    time.push_str(&format!("{}s", seconds));
+    if seconds > 0 {
+        if !time.is_empty() {
+            time.push_str(" ");
+        }
+        time.push_str(&format!("{}s", seconds));
+    }
     return time;
 }
 

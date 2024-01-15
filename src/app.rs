@@ -98,7 +98,7 @@ pub fn trigger_alarm(timer_info: &TimerInfo) {
             stream_handle.play_raw(source.convert_samples()).unwrap();
         } else {
             println!("Playing alarm...");
-            let mp3 = include_bytes!("../assets/alarm.mp3");
+            let mp3 = include_bytes!("../assets/ding.mp3");
             let cursor = std::io::Cursor::new(mp3);
             let source = Decoder::new_mp3(cursor).unwrap();
             stream_handle.play_raw(source.convert_samples()).unwrap();

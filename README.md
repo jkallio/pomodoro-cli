@@ -15,18 +15,14 @@ Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
 # Installation
 
-TODO
+### Download binary
 
-## Compilation from source
+- [pomodoro cli (v.1.0.0)](https://github.com/jkallio/pomodoro-cli/releases/tag/v1.0)
 
-Pre-requisites:
-- [Rust compilation tools](https://www.rust-lang.org/)
+### Cargo
 
 ```bash
-$ git clone git@github.com:jkallio/pomodoro-cli.git 
-$ cd pomodoro-cli
-$ cargo build --release
-$ cp target/release/pomodoro-cli /usr/local/bin/pomodoro-cli
+$ cargo install pomodoro-cli
 ```
 
 # Features

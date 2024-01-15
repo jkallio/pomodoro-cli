@@ -102,9 +102,9 @@ Add the following module to your waybar configuration:
     "format": "   {}",
     "tooltip": false,
     "exec": "pomodoro-cli status --format human",
-    "on-click": "pomodoro-cli toggle",
-    "on-click-middle": "pomodoro-cli reset --duration 5m",
-    "on-click-right": "pomodoro-cli add --duration 5m",
+    "on-click": "pomodoro-cli start --duration 5m",
+    "on-click-middle": "pomodoro-cli pause",
+    "on-click-right": "pomodoro-cli stop",
     "interval": 1
 }
 ```

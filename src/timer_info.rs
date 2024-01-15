@@ -3,8 +3,10 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::prelude::*;
 
-pub const DEFAULT_DURATION: i64 = 25 * 60;
+/// The default duration of the timer in seconds
+pub const DEFAULT_TIMER_DURATION: i64 = 25 * 60;
 
+/// Defines the state of the timer
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TimerState {
     Running,
@@ -12,6 +14,7 @@ pub enum TimerState {
     Finished,
 }
 
+/// Defines the timer info data structure (which is stored as JSON in system cache directory)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TimerInfo {
     pub state: TimerState,
@@ -21,6 +24,8 @@ pub struct TimerInfo {
     pub silent: bool,
     pub notify: bool,
 }
+
+/// Implement default for TimerInfo
 impl Default for TimerInfo {
     fn default() -> Self {
         let start_time = chrono::Utc::now().timestamp();
@@ -28,15 +33,18 @@ impl Default for TimerInfo {
             state: TimerState::Paused,
             start_time,
             pause_time: start_time,
-            duration: DEFAULT_DURATION,
+            duration: DEFAULT_TIMER_DURATION,
             silent: false,
             notify: false,
         }
     }
 }
+
+/// Implement convinience methods for TimerInfo
 impl TimerInfo {
+    /// Initialize the TimerInfo from the stored JSON file.
     pub fn from_file() -> Self {
-        let path = get_state_file();
+        let path = get_timer_info_file();
         if !path.exists() {
             return Self::default();
         }
@@ -46,14 +54,17 @@ impl TimerInfo {
         serde_json::from_str(&contents).unwrap()
     }
 
+    /// Return true if the timer is in `Running` state
     pub fn is_running(&self) -> bool {
         self.state == TimerState::Running
     }
 
+    /// Returns the time left in the timer in seconds.
     pub fn get_time_left(&self) -> i64 {
         self.duration - self.get_time_elapsed()
     }
 
+    /// Returns the time elapsed since start in seconds.
     pub fn get_time_elapsed(&self) -> i64 {
         match self.state {
             TimerState::Finished => return self.duration,
@@ -66,24 +77,27 @@ impl TimerInfo {
         }
     }
 
+    /// Write the TimerInfo to the JSON file.
     pub fn write_to_file(&self) {
-        let path = get_state_file();
+        let path = get_timer_info_file();
         let mut file = File::create(path).unwrap();
         let json = serde_json::to_string_pretty(&self).unwrap();
         file.write_all(json.as_bytes()).unwrap();
     }
 
+    /// Remove the JSON file from the system cache directory.
     #[allow(dead_code)]
     pub fn remove_info_file() {
-        let path = get_state_file();
+        let path = get_timer_info_file();
         if path.exists() {
             std::fs::remove_file(path).unwrap();
         }
     }
 
+    /// Returns true if the JSON file exists in the system cache directory.
     #[allow(dead_code)]
     pub fn info_file_exists() -> bool {
-        let path = get_state_file();
+        let path = get_timer_info_file();
         path.exists()
     }
 }

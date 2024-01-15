@@ -13,6 +13,7 @@ pub struct Cli {
     pub subcmd: SubCommand,
 }
 
+/// Defines the subcommands for the CLI
 #[derive(Subcommand, Debug)]
 pub enum SubCommand {
     /// Start a new timer
@@ -41,6 +42,7 @@ pub enum SubCommand {
     },
 }
 
+/// Defines the returned time format for the status command
 #[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum StatusFormat {

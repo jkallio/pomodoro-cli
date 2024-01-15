@@ -3,7 +3,7 @@ name = "pomodoro-cli"
 version = "1.0.0"
 authors = ["Jussi Kallio <jkallio@gmail.com>"]
 license = "MIT"
-description = "A simple pomodoro timer for the command line."
+description = "A simple command line Pomodoro timer."
 readme = "README.md"
 homepage = "https://github.com/jkallio/pomodoro-cli"
 repository = "https://github.com/jkallio/pomodoro-cli"
@@ -21,7 +21,7 @@ serde = { version = "1.0.195", features = ["derive"] }
 serde_json = "1.0.111"
 dirs = "5.0.1"
 clap = { version = "4.4.16", features = ["derive", "cargo"] }
-tokio = { version = "1.35.1", features = ["full"] }
+#tokio = { version = "1.35.1", features = ["full"] }
 rodio = "0.17.3"
 
 [profile.release]

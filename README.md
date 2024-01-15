@@ -33,6 +33,7 @@ $ cp target/release/pomodoro-cli /usr/local/bin/pomodoro-cli
 
 - [x] Start/Stop the Timer
 - [x] Query the Timer status
+- [x] Add more time to a running timer.
 - [x] Triggers system notification when the Timer is finished
 - [x] Play alarm sound when the Timer is finished
 - [x] Easy Waybar integration
@@ -41,6 +42,11 @@ $ cp target/release/pomodoro-cli /usr/local/bin/pomodoro-cli
 
 # Usage
 
+Options for `start`:
+- `--duration` Set the duration for the timer (format: `1h 30m 15s`)
+- `--notify` Triggers system notification when the timer is finished (default: disabled)
+- `--silent` Do not play alarm sound when the timer is finished (default: enabled)
+
 ### Start/Stop the timer
 
 ```bash
@@ -48,7 +54,7 @@ $ cp target/release/pomodoro-cli /usr/local/bin/pomodoro-cli
 $ pomodoro-cli start
 
 # Start the timer with custom configuration
-$ pomodoro-cli start --duration "1h 30m 15s" --silent true
+$ pomodoro-cli start --duration "1h 30m 15s" --silent --notify
 
 # Stop the timer
 $ pomodoro-cli stop

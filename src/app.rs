@@ -4,6 +4,7 @@ use crate::utils::*;
 use notify_rust::Notification;
 use rodio::{Decoder, Source};
 
+/// Run the application with the given arguments
 pub fn run(args: &Cli) {
     match &args.subcmd {
         SubCommand::Start {
@@ -29,6 +30,7 @@ pub fn run(args: &Cli) {
     }
 }
 
+/// Start the timer. If the timer is already running, the duration is added to the current duration.
 pub fn start_timer(duration: i64, silent: bool, notify: bool) {
     let mut timer_info = TimerInfo::from_file();
     if timer_info.is_running() {
@@ -45,6 +47,7 @@ pub fn start_timer(duration: i64, silent: bool, notify: bool) {
     timer_info.write_to_file();
 }
 
+/// Pause the timer. If the timer is already paused, the timer is resumed.
 pub fn pause_timer() {
     let mut timer_info = TimerInfo::from_file();
     if timer_info.is_running() {
@@ -57,12 +60,14 @@ pub fn pause_timer() {
     }
 }
 
+/// Stop the timer.
 pub fn stop_timer() {
     let mut timer_info = TimerInfo::from_file();
     timer_info.state = TimerState::Finished;
     timer_info.write_to_file();
 }
 
+/// Trigger the alarm sound and/or the system notification.
 pub fn trigger_alarm(timer_info: &TimerInfo) {
     println!("Time is up!");
 
@@ -102,6 +107,7 @@ pub fn trigger_alarm(timer_info: &TimerInfo) {
     }
 }
 
+/// Return the status of the timer in the given format.
 pub fn get_status(format: StatusFormat) {
     let timer_info = TimerInfo::from_file();
     let elapsed = timer_info.get_time_elapsed();

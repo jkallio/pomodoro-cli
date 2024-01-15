@@ -1,9 +1,10 @@
-use crate::timer_info::DEFAULT_DURATION;
+use crate::timer_info::DEFAULT_TIMER_DURATION;
 use std::path::PathBuf;
 
-/// Return the path to the timer state file. This is the cache directory on Linux and LocalAppData on Windows.
-/// In case the cache directory is not available, the current directory is used.
-pub fn get_state_file() -> PathBuf {
+/// Return the path to the timer information file. This is the cache directory on Linux and
+/// LocalAppData on Windows. In case the cache directory is not available, the current
+/// directory is used.
+pub fn get_timer_info_file() -> PathBuf {
     let mut path = dirs::cache_dir().unwrap_or_else(|| PathBuf::from("."));
     path.push("pomodoro-cli-info.json");
     path
@@ -73,9 +74,10 @@ pub fn parse_duration(duration: Option<String>) -> i64 {
         }
         return hours * 60 * 60 + minutes * 60 + seconds;
     }
-    DEFAULT_DURATION
+    DEFAULT_TIMER_DURATION
 }
 
+/// Return the seconds in human-readable format (e.g. 1h 30m 10s)
 pub fn get_human_readable_time(seconds: i64) -> String {
     let mut seconds = seconds;
     let hours = seconds / 3600;

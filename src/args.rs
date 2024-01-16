@@ -3,10 +3,10 @@ use serde::Serialize;
 
 #[derive(Parser, Debug)]
 #[clap(
-    name = "Pomodoro CLI",
-    version = "1.1.0",
-    author = "Jussi Kallio",
-    about = "Pomodoro timer is a simple timer that helps you to stay focused on your task."
+    name = env!("CARGO_PKG_NAME"),
+    version = env!("CARGO_PKG_VERSION"),
+    author = env!("CARGO_PKG_AUTHORS"),
+    about = env!("CARGO_PKG_DESCRIPTION"),
 )]
 pub struct Cli {
     #[clap(subcommand)]

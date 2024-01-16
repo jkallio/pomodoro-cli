@@ -4,7 +4,7 @@ use serde::Serialize;
 #[derive(Parser, Debug)]
 #[clap(
     name = "Pomodoro CLI",
-    version = "1.0.0",
+    version = "1.1.0",
     author = "Jussi Kallio",
     about = "Pomodoro timer is a simple timer that helps you to stay focused on your task."
 )]
@@ -43,10 +43,11 @@ pub enum SubCommand {
 }
 
 /// Defines the returned time format for the status command
-#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize)]
+#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum StatusFormat {
     #[default]
     Seconds,
     Human,
+    Json,
 }

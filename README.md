@@ -17,7 +17,7 @@ Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
 ### Download binary
 
-- [pomodoro cli (v.1.0.0)](https://github.com/jkallio/pomodoro-cli/releases/tag/v1.0)
+- [pomodoro cli (v.1.1.0)](https://github.com/jkallio/pomodoro-cli/releases/tag/v1.1.0)
 
 ### Cargo
 
@@ -59,6 +59,13 @@ $ pomodoro-cli stop
 $ pomodoro-cli pause
 ```
 
+### Add more time to a running timer
+
+```bash
+# Call start again while the timer is running to add more time to the timer
+$ pomodoro-cli start --duration 5m
+```
+
 ### Query the timer status
 
 ```bash
@@ -67,6 +74,56 @@ $ pomodoro-cli status --format seconds
 
 ## Get remaining time in human readable format
 $ pomodoro-cli status --format human
+
+# Get the timer status in JSON format (for Waybar integration)
+$ pomodoro-cli status --format json
+```
+
+# Waybar integration
+
+![Waybar](./assets/screenshot_waybar.png)
+
+Add the following module to your waybar configuration:
+
+```json
+"custom/pomo": {
+    "format": "   {}",
+    "exec": "pomodoro-cli status --format json",
+    "return-type": "json",
+    "on-click": "pomodoro-cli start --duration 5m --notify",
+    "on-click-middle": "pomodoro-cli pause",
+    "on-click-right": "pomodoro-cli stop",
+    "interval": 1
+},
+```
+
+### CSS styling
+
+The module supports three different states: `running`, `paused` and `stopped`. You can customize the styling of each state by adding the following CSS rules to your Waybar configuration:
+
+```css
+#custom-pomo.finished {
+  background: #8F0808;
+}
+
+#custom-pomo.running {
+  background: #304D30;
+}
+
+#custom-pomo.paused {
+  background: #AB730A;
+}
+```
+
+###  Update Waybar module immediately
+
+If you want to signal Waybar to update the module immediately when you can add `pkill -SIGRTMIN+10 waybar` to the `on-click` commands. For example:
+
+```json
+"custom/pomo": {
+    on-click": "pomodoro-cli start --duration 5m; pkill -SIGRTMIN+10 waybar",
+    signal": 10,
+}
 ```
 
 # Customization
@@ -91,41 +148,9 @@ $ mkdir -p ~/.config/pomodoro-cli
 $ cp /path/to/icon.png ~/.config/pomodoro-cli/icon.png
 ```
 
-# Waybar integration
-
-Add the following module to your waybar configuration:
-
-![Waybar](./assets/screenshot_waybar.png)
-
-```json
-"custom/pomodoro": {
-    "format": "   {}",
-    "tooltip": false,
-    "exec": "pomodoro-cli status --format human",
-    "on-click": "pomodoro-cli start --duration 5m",
-    "on-click-middle": "pomodoro-cli pause",
-    "on-click-right": "pomodoro-cli stop",
-    "interval": 1
-}
-```
-
-If you want to signal Waybar to update the module immediately when you click it, change use the following configuration:
-
-```json
-"custom/pomo": {
-    "format": "   {}",
-    "tooltip": false,
-    "exec": "pomodoro-cli status --format human",
-    "signal": 10,
-    "on-click": "pomodoro-cli start --duration 5m; pkill -SIGRTMIN+10 waybar",
-    "on-click-middle": "pomodoro-cli pause; pkill -SIGRTMIN+10 waybar",
-    "on-click-right": "pomodoro-cli stop; pkill -SIGRTMIN+10 waybar",
-    "interval": 1
-}
-```
-
 # Alternatives
 
 - [i3-gnome-pomodoro](https://github.com/kantord/i3-gnome-pomodoro)
+- [openpomodoro-cli](https://github.com/open-pomodoro/openpomodoro-cli)
 - [rust-cli-pomodoro](https://crates.io/crates/rust-cli-pomodoro)
 - [pomo](https://kevinschoon.github.io/pomo/)

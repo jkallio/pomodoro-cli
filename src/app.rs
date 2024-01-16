@@ -21,11 +21,8 @@ pub fn run(args: &Cli) {
             stop_timer();
         }
         SubCommand::Status { format } => {
-            let format = match *format {
-                Some(StatusFormat::Human) => StatusFormat::Human,
-                _ => StatusFormat::Seconds,
-            };
-            get_status(format);
+            let status = get_status(*format);
+            println!("{}", status);
         }
     }
 }
@@ -108,35 +105,28 @@ pub fn trigger_alarm(timer_info: &TimerInfo) {
 }
 
 /// Return the status of the timer in the given format.
-pub fn get_status(format: StatusFormat) {
+pub fn get_status(format: Option<StatusFormat>) -> String {
     let timer_info = TimerInfo::from_file();
     let elapsed = timer_info.get_time_elapsed();
 
-    match timer_info.state {
-        TimerState::Finished => {
-            println!("Finished");
-        }
-        TimerState::Paused => {
-            println!(
+    let status: String = match format {
+        Some(StatusFormat::Human) => match timer_info.state {
+            TimerState::Finished => "Finished".to_string(),
+            TimerState::Paused => format!(
                 "Paused ({} left)",
                 get_human_readable_time(timer_info.get_time_left())
-            );
-            return;
-        }
-        TimerState::Running => {
-            if elapsed >= timer_info.duration {
-                stop_timer();
-                trigger_alarm(&timer_info);
-                return;
+            ),
+            TimerState::Running => {
+                format!("{}", get_human_readable_time(timer_info.get_time_left()))
             }
-            match format {
-                StatusFormat::Human => {
-                    println!("{}", get_human_readable_time(timer_info.get_time_left()))
-                }
-                StatusFormat::Seconds => {
-                    println!("{}", timer_info.get_time_left());
-                }
-            }
-        }
+        },
+        Some(StatusFormat::Json) => format!("{}", timer_info.get_json_info()),
+        _ => format!("{}", timer_info.get_time_left()),
+    };
+
+    if timer_info.is_running() && elapsed >= timer_info.duration {
+        stop_timer();
+        trigger_alarm(&timer_info);
     }
+    return status;
 }

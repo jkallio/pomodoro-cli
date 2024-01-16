@@ -25,6 +25,14 @@ pub struct TimerInfo {
     pub notify: bool,
 }
 
+#[derive(Serialize)]
+pub struct WaybarTimerInfo {
+    pub text: String,
+    pub tooltip: String,
+    pub class: String,
+    pub percentage: f64,
+}
+
 /// Implement default for TimerInfo
 impl Default for TimerInfo {
     fn default() -> Self {
@@ -62,6 +70,39 @@ impl TimerInfo {
     /// Returns the time left in the timer in seconds.
     pub fn get_time_left(&self) -> i64 {
         self.duration - self.get_time_elapsed()
+    }
+
+    /// Returns the info in Waybar JSON format.
+    pub fn get_json_info(&self) -> String {
+        let time_left = self.get_time_left();
+        let percentage = (time_left as f64 / self.duration as f64) * 100.0;
+        let text = get_human_readable_time(time_left);
+        let tooltip = match self.state {
+            TimerState::Running => format!(
+                "Running\nLeft: {}\nElapsed: {} ",
+                get_human_readable_time(self.get_time_left()),
+                get_human_readable_time(self.get_time_elapsed())
+            ),
+            TimerState::Paused => format!(
+                "Paused\nLeft: {}\nElapsed: {} ",
+                get_human_readable_time(self.get_time_left()),
+                get_human_readable_time(self.get_time_elapsed())
+            ),
+            TimerState::Finished => "Finished".to_string(),
+        }
+        .to_string();
+        let class = match self.state {
+            TimerState::Running => "running",
+            TimerState::Paused => "paused",
+            TimerState::Finished => "finished",
+        };
+        let waybar_info = WaybarTimerInfo {
+            text,
+            tooltip,
+            class: class.to_string(),
+            percentage,
+        };
+        serde_json::to_string(&waybar_info).unwrap()
     }
 
     /// Returns the time elapsed since start in seconds.

@@ -67,6 +67,10 @@ impl TimerInfo {
         self.state == TimerState::Running
     }
 
+    pub fn is_time_run_out(&self) -> bool {
+        self.get_time_left() <= 0
+    }
+
     /// Returns the time left in the timer in seconds.
     pub fn get_time_left(&self) -> i64 {
         self.duration - self.get_time_elapsed()

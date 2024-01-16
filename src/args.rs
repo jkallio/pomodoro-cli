@@ -26,6 +26,9 @@ pub enum SubCommand {
 
         #[arg(long, default_value_t = false, help = "Disable the alarm sound")]
         silent: bool,
+
+        #[arg(long, default_value_t = false, help = "Wait for the timer to finish")]
+        wait: bool,
     },
     /// Stop the timer
     Stop,

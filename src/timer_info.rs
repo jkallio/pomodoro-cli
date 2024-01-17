@@ -23,6 +23,7 @@ pub struct TimerInfo {
     pub duration: i64,
     pub silent: bool,
     pub notify: bool,
+    pub wait: bool,
 }
 
 #[derive(Serialize)]
@@ -44,6 +45,7 @@ impl Default for TimerInfo {
             duration: DEFAULT_TIMER_DURATION,
             silent: false,
             notify: false,
+            wait: false,
         }
     }
 }

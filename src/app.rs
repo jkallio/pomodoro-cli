@@ -132,7 +132,7 @@ pub fn get_status(format: Option<StatusFormat>) -> String {
         _ => format!("{}", timer_info.get_time_left()),
     };
 
-    if timer_info.is_running() && timer_info.is_time_run_out() {
+    if timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out() {
         stop_timer();
         trigger_alarm(&timer_info);
     }

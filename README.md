@@ -17,7 +17,7 @@ Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
 ### Download binary
 
-- [pomodoro cli (v.1.1.0)](https://github.com/jkallio/pomodoro-cli/releases/tag/v1.1.0)
+- [pomodoro cli (v.1.2.1)](https://github.com/jkallio/pomodoro-cli/releases/tag/v1.2.1)
 
 ### Cargo
 
@@ -30,11 +30,11 @@ $ cargo install pomodoro-cli
 - [x] Start/Stop the Timer
 - [x] Query the Timer status
 - [x] Add more time to a running timer.
+- [x] Wait for the Timer to finish (v1.2.0)
 - [x] Triggers system notification when the Timer is finished
 - [x] Play alarm sound when the Timer is finished
 - [x] Easy Waybar integration
-- [x] Customize notification icon
-- [x] Customize alarm sound
+- [x] Customize notification icon and alarm sound
 
 # Usage
 
@@ -42,6 +42,7 @@ Options for `start`:
 - `--duration` Set the duration for the timer (format: `1h 30m 15s`)
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
 - `--silent` Do not play alarm sound when the timer is finished (default: enabled)
+- `--wait` Wait for the timer to finish (default: disabled)
 
 ### Start/Stop the timer
 
@@ -121,8 +122,8 @@ If you want to signal Waybar to update the module immediately when you can add `
 
 ```json
 "custom/pomo": {
-    on-click": "pomodoro-cli start --duration 5m; pkill -SIGRTMIN+10 waybar",
-    signal": 10,
+    "on-click": "pomodoro-cli start --duration 5m; pkill -SIGRTMIN+10 waybar",
+    "signal": 10,
 }
 ```
 

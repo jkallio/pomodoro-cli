@@ -1,6 +1,6 @@
 [package]
 name = "pomodoro-cli"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["Jussi Kallio <jkallio@gmail.com>"]
 license = "MIT"
 description = "A simple command line Pomodoro timer."

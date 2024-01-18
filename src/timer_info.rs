@@ -1,3 +1,4 @@
+use crate::error::*;
 use crate::utils::*;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -23,6 +24,7 @@ pub struct TimerInfo {
     pub duration: i64,
     pub silent: bool,
     pub notify: bool,
+    pub wait: bool,
 }
 
 #[derive(Serialize)]
@@ -44,27 +46,37 @@ impl Default for TimerInfo {
             duration: DEFAULT_TIMER_DURATION,
             silent: false,
             notify: false,
+            wait: false,
         }
     }
 }
 
 /// Implement convinience methods for TimerInfo
 impl TimerInfo {
-    /// Initialize the TimerInfo from the stored JSON file.
-    pub fn from_file() -> Self {
+    /// Initialize the TimerInfo from the stored JSON file. Defaults to default values if the file does not exist.
+    pub fn from_file_or_default() -> AppResult<Self> {
         let path = get_timer_info_file();
         if !path.exists() {
-            return Self::default();
+            return Ok(Self::default());
         }
-        let mut file = std::fs::File::open(path).unwrap();
+
         let mut contents = String::new();
-        file.read_to_string(&mut contents).unwrap();
-        serde_json::from_str(&contents).unwrap()
+        let mut file = std::fs::File::open(path)?;
+
+        file.read_to_string(&mut contents)?;
+        if let Ok(timer_info) = serde_json::from_str(&contents) {
+            return Ok(timer_info);
+        }
+        Ok(Self::default())
     }
 
     /// Return true if the timer is in `Running` state
     pub fn is_running(&self) -> bool {
         self.state == TimerState::Running
+    }
+
+    pub fn is_time_run_out(&self) -> bool {
+        self.get_time_left() <= 0
     }
 
     /// Returns the time left in the timer in seconds.
@@ -73,7 +85,7 @@ impl TimerInfo {
     }
 
     /// Returns the info in Waybar JSON format.
-    pub fn get_json_info(&self) -> String {
+    pub fn get_json_info(&self) -> AppResult<String> {
         let time_left = self.get_time_left();
         let percentage = (time_left as f64 / self.duration as f64) * 100.0;
         let text = get_human_readable_time(time_left);
@@ -102,7 +114,7 @@ impl TimerInfo {
             class: class.to_string(),
             percentage,
         };
-        serde_json::to_string(&waybar_info).unwrap()
+        return Ok(serde_json::to_string(&waybar_info)?);
     }
 
     /// Returns the time elapsed since start in seconds.
@@ -119,20 +131,22 @@ impl TimerInfo {
     }
 
     /// Write the TimerInfo to the JSON file.
-    pub fn write_to_file(&self) {
+    pub fn write_to_file(&self) -> AppResult<()> {
         let path = get_timer_info_file();
-        let mut file = File::create(path).unwrap();
-        let json = serde_json::to_string_pretty(&self).unwrap();
-        file.write_all(json.as_bytes()).unwrap();
+        let mut file = File::create(path)?;
+        let json = serde_json::to_string_pretty(&self)?;
+        file.write_all(json.as_bytes())?;
+        Ok(())
     }
 
     /// Remove the JSON file from the system cache directory.
     #[allow(dead_code)]
-    pub fn remove_info_file() {
+    pub fn remove_info_file() -> AppResult<()> {
         let path = get_timer_info_file();
         if path.exists() {
-            std::fs::remove_file(path).unwrap();
+            std::fs::remove_file(path)?;
         }
+        Ok(())
     }
 
     /// Returns true if the JSON file exists in the system cache directory.
@@ -148,13 +162,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_file_io() {
-        TimerInfo::remove_info_file();
+    fn test_file_io() -> AppResult<()> {
+        TimerInfo::remove_info_file()?;
         assert!(!TimerInfo::info_file_exists());
         let timer_info = TimerInfo::default();
-        timer_info.write_to_file();
+        timer_info.write_to_file()?;
         assert!(TimerInfo::info_file_exists());
-        TimerInfo::remove_info_file();
+        TimerInfo::remove_info_file()?;
+        Ok(())
     }
 
     #[test]

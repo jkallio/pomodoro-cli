@@ -1,6 +1,6 @@
 [package]
 name = "pomodoro-cli"
-version = "1.1.0"
+version = "1.2.0"
 authors = ["Jussi Kallio <jkallio@gmail.com>"]
 license = "MIT"
 description = "A simple command line Pomodoro timer."
@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://github.com/jkallio/pomodoro-cli"
 repository = "https://github.com/jkallio/pomodoro-cli"
 keywords = ["pomodoro", "timer"]
-categories = ["productivity", "command-line-utilities"]
+categories = ["command-line-utilities"]
 edition = "2021"
 
 [[bin]]
@@ -21,8 +21,9 @@ serde = { version = "1.0.195", features = ["derive"] }
 serde_json = "1.0.111"
 dirs = "5.0.1"
 clap = { version = "4.4.16", features = ["derive", "cargo"] }
-#tokio = { version = "1.35.1", features = ["full"] }
 rodio = "0.17.3"
+crossterm = "0.27.0"
+
 
 [profile.release]
 strip = true        # Automatically strip symbols from the binary.

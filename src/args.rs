@@ -3,10 +3,10 @@ use serde::Serialize;
 
 #[derive(Parser, Debug)]
 #[clap(
-    name = "Pomodoro CLI",
-    version = "1.1.0",
-    author = "Jussi Kallio",
-    about = "Pomodoro timer is a simple timer that helps you to stay focused on your task."
+    name = env!("CARGO_PKG_NAME"),
+    version = env!("CARGO_PKG_VERSION"),
+    author = env!("CARGO_PKG_AUTHORS"),
+    about = env!("CARGO_PKG_DESCRIPTION"),
 )]
 pub struct Cli {
     #[clap(subcommand)]
@@ -18,7 +18,7 @@ pub struct Cli {
 pub enum SubCommand {
     /// Start a new timer
     Start {
-        #[arg(short, long, help = "Duration of the timer in format 1h30m20s")]
+        #[arg(short, long, help = "Duration of the timer in format 1h 30m 20s")]
         duration: Option<String>,
 
         #[arg(long, default_value_t = false, help = "Enable system notification")]
@@ -26,6 +26,9 @@ pub enum SubCommand {
 
         #[arg(long, default_value_t = false, help = "Disable the alarm sound")]
         silent: bool,
+
+        #[arg(long, default_value_t = false, help = "Wait for the timer to finish")]
+        wait: bool,
     },
     /// Stop the timer
     Stop,
@@ -33,11 +36,7 @@ pub enum SubCommand {
     Pause,
     /// Get the current status of the timer
     Status {
-        #[arg(
-            short,
-            long,
-            help = "Duration in seconds or human-readable format (default=seconds)"
-        )]
+        #[arg(short, long, help = "Status format [seconds/human-readable/JSON]")]
         format: Option<StatusFormat>,
     },
 }

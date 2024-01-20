@@ -3,7 +3,7 @@ use crate::error::*;
 use crate::timer_info::DEFAULT_TIMER_DURATION;
 use crate::timer_info::{TimerInfo, TimerState};
 use crate::utils::*;
-use crossterm::cursor::{Hide, MoveToColumn, MoveToPreviousLine, Show};
+use crossterm::cursor::{MoveToColumn, MoveToPreviousLine};
 use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType};
 use notify_rust::Notification;
@@ -172,17 +172,24 @@ pub fn wait_for_timer() -> AppResult<()> {
     // This thread will wait for the timer to finish and peridoically prints the time left.
     let timer_thrd = thread::spawn(move || -> AppResult<()> {
         let mut stdout = std::io::stdout();
-        execute!(stdout, Hide)?;
         loop {
             let timer_info = TimerInfo::from_file_or_default()?;
-            println!("{}", timer_info.get_human_readable());
+            let percentage = (timer_info.get_percentage() / 4.0) as i64;
+            print!("|");
+            for _ in 0..percentage {
+                print!("#");
+            }
+            for _ in 0..(25 - percentage) {
+                print!("-");
+            }
+            println!("| {}", timer_info.get_human_readable());
 
             thread::sleep(std::time::Duration::from_millis(1000));
             execute!(
                 stdout,
                 MoveToPreviousLine(1),
+                Clear(ClearType::CurrentLine),
                 MoveToColumn(0),
-                Clear(ClearType::CurrentLine)
             )?;
 
             if !timer_info.is_running() {
@@ -196,7 +203,6 @@ pub fn wait_for_timer() -> AppResult<()> {
                 break;
             }
         }
-        execute!(stdout, Show)?;
         return Ok(());
     });
 

@@ -91,6 +91,10 @@ impl TimerInfo {
         self.duration - self.get_time_elapsed()
     }
 
+    pub fn get_percentage(&self) -> f64 {
+        (self.get_time_left() as f64 / self.duration as f64) * 100.0
+    }
+
     /// Returns the info in human readable format.
     pub fn get_human_readable(&self) -> String {
         let mut text = convert_to_text_format(self.get_time_left());
@@ -106,8 +110,6 @@ impl TimerInfo {
 
     /// Returns the info in Waybar JSON format.
     pub fn get_json_info(&self) -> AppResult<String> {
-        let time_left = self.get_time_left();
-        let percentage = (time_left as f64 / self.duration as f64) * 100.0;
         let text = self.get_human_readable();
         let tooltip = match self.state {
             TimerState::Running => format!(
@@ -132,7 +134,7 @@ impl TimerInfo {
             text,
             tooltip,
             class: class.to_string(),
-            percentage,
+            percentage: self.get_percentage(),
         };
         return Ok(serde_json::to_string(&waybar_info)?);
     }

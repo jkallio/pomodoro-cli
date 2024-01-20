@@ -44,6 +44,7 @@ Options for `start`:
 - `--silent` Do not play alarm sound when the timer is finished (default: enabled)
 - `--wait` Wait for the timer to finish (default: disabled)
 - `--add` Add more time to a running timer instead of starting a new timer (default: disabled)
+- `--resume` Resume a paused timer (default: disabled)
 
 ### Start/Stop the timer
 
@@ -59,6 +60,9 @@ $ pomodoro-cli stop
 
 # Pause the Timer (calling this command again will resume the timer)
 $ pomodoro-cli pause
+
+# Resume a paused timer
+$ pomodoro-cli start --resume
 ```
 
 ### Add more time to a running timer
@@ -92,7 +96,7 @@ Add the following module to your waybar configuration:
     "format": "   {}",
     "exec": "pomodoro-cli status --format json",
     "return-type": "json",
-    "on-click": "pomodoro-cli start --duration 5m --notify",
+    "on-click": "pomodoro-cli start --duration 5m --add --notify",
     "on-click-middle": "pomodoro-cli pause",
     "on-click-right": "pomodoro-cli stop",
     "interval": 1

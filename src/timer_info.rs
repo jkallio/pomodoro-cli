@@ -75,6 +75,11 @@ impl TimerInfo {
         self.state == TimerState::Running
     }
 
+    /// Return true if the timer is in `Paused` state
+    pub fn is_paused(&self) -> bool {
+        self.state == TimerState::Paused
+    }
+
     pub fn is_time_run_out(&self) -> bool {
         self.get_time_left() <= 0
     }

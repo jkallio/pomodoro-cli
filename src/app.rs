@@ -18,8 +18,15 @@ pub fn run(args: &Cli) -> AppResult<()> {
             notify,
             wait,
             add,
+            resume,
         } => {
-            start_timer(parse_duration(duration.clone()), *silent, *notify, *add)?;
+            start_timer(
+                parse_duration(duration.clone()),
+                *silent,
+                *notify,
+                *add,
+                *resume,
+            )?;
             if *wait {
                 wait_for_timer()?;
             }
@@ -39,14 +46,28 @@ pub fn run(args: &Cli) -> AppResult<()> {
 }
 
 /// Start the timer. If the timer is already running, the duration is added to the current duration.
-pub fn start_timer(duration: i64, silent: bool, notify: bool, add: bool) -> AppResult<()> {
+pub fn start_timer(
+    duration: i64,
+    silent: bool,
+    notify: bool,
+    add: bool,
+    resume: bool,
+) -> AppResult<()> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
-    if add && timer_info.is_running() {
+    if timer_info.is_running() && add {
         timer_info.duration += duration;
+    } else if timer_info.is_paused() && resume {
+        let now = chrono::Utc::now().timestamp();
+        let elapsed = timer_info.pause_time - timer_info.start_time;
+        timer_info.duration = timer_info.duration - elapsed;
+        timer_info.start_time = now;
+        timer_info.pause_time = now;
+        timer_info.silent = timer_info.silent || silent;
+        timer_info.notify = timer_info.notify || notify;
+        timer_info.state = TimerState::Running;
     } else {
         let now = chrono::Utc::now().timestamp() + 1;
-        let elapsed = timer_info.pause_time - timer_info.start_time;
-        timer_info.duration = duration - elapsed;
+        timer_info.duration = duration;
         timer_info.start_time = now;
         timer_info.pause_time = now;
         timer_info.silent = silent;
@@ -71,6 +92,7 @@ pub fn pause_timer() -> AppResult<()> {
             timer_info.silent,
             timer_info.notify,
             false,
+            true,
         )?;
     }
     Ok(())

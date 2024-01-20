@@ -32,6 +32,9 @@ pub enum SubCommand {
 
         #[arg(long, default_value_t = false, help = "Add more time to the timer")]
         add: bool,
+
+        #[arg(long, default_value_t = false, help = "Resume paused timer")]
+        resume: bool,
     },
     /// Stop the timer
     Stop,

@@ -1,5 +1,6 @@
 use crate::args::*;
 use crate::error::*;
+use crate::timer_info::DEFAULT_TIMER_DURATION;
 use crate::timer_info::{TimerInfo, TimerState};
 use crate::utils::*;
 use crossterm::cursor::{Hide, MoveToColumn, MoveToPreviousLine, Show};
@@ -22,9 +23,9 @@ pub fn run(args: &Cli) -> AppResult<()> {
         } => {
             start_timer(
                 parse_duration(duration.clone()),
+                parse_duration(add.clone()),
                 *silent,
                 *notify,
-                *add,
                 *resume,
             )?;
             if *wait {
@@ -47,16 +48,18 @@ pub fn run(args: &Cli) -> AppResult<()> {
 
 /// Start the timer. If the timer is already running, the duration is added to the current duration.
 pub fn start_timer(
-    duration: i64,
+    duration: Option<i64>,
+    add: Option<i64>,
     silent: bool,
     notify: bool,
-    add: bool,
     resume: bool,
 ) -> AppResult<()> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
-    if timer_info.is_running() && add {
-        timer_info.duration += duration;
+    if timer_info.is_running() && add.is_some() {
+        // Add more time to the timer
+        timer_info.duration += add.unwrap();
     } else if timer_info.is_paused() && resume {
+        // Resume a paused timer
         let now = chrono::Utc::now().timestamp();
         let elapsed = timer_info.pause_time - timer_info.start_time;
         timer_info.duration = timer_info.duration - elapsed;
@@ -66,6 +69,8 @@ pub fn start_timer(
         timer_info.notify = timer_info.notify || notify;
         timer_info.state = TimerState::Running;
     } else {
+        // Start a new timer
+        let duration = duration.unwrap_or(add.unwrap_or(DEFAULT_TIMER_DURATION));
         let now = chrono::Utc::now().timestamp() + 1;
         timer_info.duration = duration;
         timer_info.start_time = now;
@@ -88,11 +93,11 @@ pub fn pause_timer() -> AppResult<()> {
         timer_info.write_to_file()?;
     } else {
         start_timer(
-            timer_info.duration,
+            Some(timer_info.duration),
+            None,
             timer_info.silent,
             timer_info.notify,
             false,
-            true,
         )?;
     }
     Ok(())

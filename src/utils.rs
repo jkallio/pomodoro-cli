@@ -1,4 +1,3 @@
-use crate::timer_info::DEFAULT_TIMER_DURATION;
 use std::path::PathBuf;
 
 /// Return the path to the timer information file. This is the cache directory on Linux and
@@ -38,10 +37,10 @@ pub fn get_custom_icon_file() -> Option<PathBuf> {
 }
 
 /// The duration can be passed either as a number (as minutes) or as string in the format of "1h 30m 10s"
-pub fn parse_duration(duration: Option<String>) -> i64 {
+pub fn parse_duration(duration: Option<String>) -> Option<i64> {
     if let Some(duration) = duration {
         if let Ok(duration) = duration.parse::<i64>() {
-            return duration * 60;
+            return Some(duration * 60);
         }
 
         let mut duration = duration.to_lowercase();
@@ -72,9 +71,9 @@ pub fn parse_duration(duration: Option<String>) -> i64 {
             let parts = duration.split("s").collect::<Vec<&str>>();
             seconds = parts[0].parse().unwrap_or_default();
         }
-        return hours * 60 * 60 + minutes * 60 + seconds;
+        return Some(hours * 60 * 60 + minutes * 60 + seconds);
     }
-    DEFAULT_TIMER_DURATION
+    None
 }
 
 /// Return the seconds in human-readable format (e.g. 1h 30m 10s)
@@ -101,6 +100,9 @@ pub fn get_human_readable_time(seconds: i64) -> String {
         }
         time.push_str(&format!("{}s", seconds));
     }
+    if time.is_empty() {
+        time.push_str("0s");
+    }
     return time;
 }
 
@@ -110,22 +112,25 @@ mod tests {
 
     #[test]
     fn test_parse_duration() {
-        assert_eq!(parse_duration(Some("1h 30m 10s".to_string())), 5410);
-        assert_eq!(parse_duration(Some("1H 30Min 10SeC".to_string())), 5410);
-        assert_eq!(parse_duration(Some("2h15m1s".to_string())), 8101);
-        assert_eq!(parse_duration(Some("1h 30m".to_string())), 5400);
-        assert_eq!(parse_duration(Some("1hour".to_string())), 3600);
-        assert_eq!(parse_duration(Some("30m 10s".to_string())), 1810);
-        assert_eq!(parse_duration(Some("30m".to_string())), 1800);
-        assert_eq!(parse_duration(Some("10s".to_string())), 10);
-        assert_eq!(parse_duration(Some("100".to_string())), 100 * 60);
-        assert_eq!(parse_duration(Some("Invalid string".to_string())), 0);
+        assert_eq!(parse_duration(Some("1h 30m 10s".to_string())), Some(5410));
+        assert_eq!(
+            parse_duration(Some("1H 30Min 10SeC".to_string())),
+            Some(5410)
+        );
+        assert_eq!(parse_duration(Some("2h15m1s".to_string())), Some(8101));
+        assert_eq!(parse_duration(Some("1h 30m".to_string())), Some(5400));
+        assert_eq!(parse_duration(Some("1hour".to_string())), Some(3600));
+        assert_eq!(parse_duration(Some("30m 10s".to_string())), Some(1810));
+        assert_eq!(parse_duration(Some("30m".to_string())), Some(1800));
+        assert_eq!(parse_duration(Some("10s".to_string())), Some(10));
+        assert_eq!(parse_duration(Some("100".to_string())), Some(100 * 60));
+        assert_eq!(parse_duration(Some("Invalid string".to_string())), Some(0));
     }
 
     #[test]
     fn test_get_human_readable_time() {
         assert_eq!(get_human_readable_time(5410), "1h 30m 10s");
-        assert_eq!(get_human_readable_time(60), "1m 0s");
+        assert_eq!(get_human_readable_time(60), "1m");
         assert_eq!(get_human_readable_time(10), "10s");
         assert_eq!(get_human_readable_time(0), "0s");
     }

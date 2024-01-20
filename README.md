@@ -40,24 +40,28 @@ $ cargo install pomodoro-cli
 
 Options for `start`:
 - `--duration` Set the duration for the timer (format: `1h 30m 15s`)
+- `--add` Add more time to a running timer instead of starting a new timer (format: `1h 30m 15s`)
+- `--resume` Resume a paused timer (default: disabled)
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
 - `--silent` Do not play alarm sound when the timer is finished (default: enabled)
 - `--wait` Wait for the timer to finish (default: disabled)
-- `--add` Add more time to a running timer instead of starting a new timer (default: disabled)
-- `--resume` Resume a paused timer (default: disabled)
 
 ### Start/Stop the timer
 
 ```bash
-# Start the timer with default configuration
+# Start the timer with default configuration (25 min with alarm sound)
 $ pomodoro-cli start
 
-# Start the timer with custom configuration
-$ pomodoro-cli start --duration "1h 30m 15s" --silent --notify
+# Start a 30 min timer wihout playing alarm sound, but triggering a system notification
+$ pomodoro-cli start --duration "30m" --silent --notify
 
 # Stop the timer
 $ pomodoro-cli stop
+```
 
+### Pause/Resume the timer
+
+```bash
 # Pause the Timer (calling this command again will resume the timer)
 $ pomodoro-cli pause
 
@@ -69,7 +73,7 @@ $ pomodoro-cli start --resume
 
 ```bash
 # Add 10 minutes to the timer (instead of starting a new timer)
-$ pomodoro-cli start -d 10 --add
+$ pomodoro-cli start -add 10m
 ```
 
 ### Query the timer status
@@ -96,7 +100,7 @@ Add the following module to your waybar configuration:
     "format": "   {}",
     "exec": "pomodoro-cli status --format json",
     "return-type": "json",
-    "on-click": "pomodoro-cli start --duration 5m --add --notify",
+    "on-click": "pomodoro-cli start --add 5m --notify",
     "on-click-middle": "pomodoro-cli pause",
     "on-click-right": "pomodoro-cli stop",
     "interval": 1
@@ -127,7 +131,7 @@ If you want to signal Waybar to update the module immediately when you can add `
 
 ```json
 "custom/pomo": {
-    "on-click": "pomodoro-cli start --duration 5m; pkill -SIGRTMIN+10 waybar",
+    "on-click": "pomodoro-cli start --add 5m; pkill -SIGRTMIN+10 waybar",
     "signal": 10,
 }
 ```

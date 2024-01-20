@@ -18,8 +18,21 @@ pub struct Cli {
 pub enum SubCommand {
     /// Start a new timer
     Start {
-        #[arg(short, long, help = "Duration of the timer in format 1h 30m 20s")]
+        #[arg(
+            short,
+            long,
+            conflicts_with_all = &["add", "resume"],
+            help = "Duration of the timer in format 1h 30m 20s"
+        )]
         duration: Option<String>,
+
+        #[arg(
+            short,
+            long,
+            conflicts_with_all = &["resume"],
+            help = "Add more time to the timer"
+        )]
+        add: Option<String>,
 
         #[arg(long, default_value_t = false, help = "Enable system notification")]
         notify: bool,
@@ -29,9 +42,6 @@ pub enum SubCommand {
 
         #[arg(long, default_value_t = false, help = "Wait for the timer to finish")]
         wait: bool,
-
-        #[arg(long, default_value_t = false, help = "Add more time to the timer")]
-        add: bool,
 
         #[arg(long, default_value_t = false, help = "Resume paused timer")]
         resume: bool,

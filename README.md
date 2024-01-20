@@ -17,7 +17,7 @@ Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
 ### Download binary
 
-- [pomodoro cli (v.1.2.1)](https://github.com/jkallio/pomodoro-cli/releases/tag/v1.2.1)
+- [pomodoro cli (latest release)](https://github.com/jkallio/pomodoro-cli/releases/latest)
 
 ### Cargo
 
@@ -43,6 +43,7 @@ Options for `start`:
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
 - `--silent` Do not play alarm sound when the timer is finished (default: enabled)
 - `--wait` Wait for the timer to finish (default: disabled)
+- `--add` Add more time to a running timer instead of starting a new timer (default: disabled)
 
 ### Start/Stop the timer
 
@@ -63,8 +64,8 @@ $ pomodoro-cli pause
 ### Add more time to a running timer
 
 ```bash
-# Call start again while the timer is running to add more time to the timer
-$ pomodoro-cli start --duration 5m
+# Add 10 minutes to the timer (instead of starting a new timer)
+$ pomodoro-cli start -d 10 --add
 ```
 
 ### Query the timer status

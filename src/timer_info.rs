@@ -22,6 +22,7 @@ pub struct TimerInfo {
     pub start_time: i64,
     pub pause_time: i64,
     pub duration: i64,
+    pub message: String,
     pub silent: bool,
     pub notify: bool,
     pub wait: bool,
@@ -44,6 +45,7 @@ impl Default for TimerInfo {
             start_time,
             pause_time: start_time,
             duration: DEFAULT_TIMER_DURATION,
+            message: "".to_string(),
             silent: false,
             notify: false,
             wait: false,
@@ -89,21 +91,34 @@ impl TimerInfo {
         self.duration - self.get_time_elapsed()
     }
 
+    /// Returns the info in human readable format.
+    pub fn get_human_readable(&self) -> String {
+        let mut text = convert_to_text_format(self.get_time_left());
+        if !self.message.is_empty() {
+            match self.state {
+                TimerState::Running => text = format!("{} - {}", text, self.message),
+                TimerState::Paused => text = format!("{} - Paused", text),
+                TimerState::Finished => text = format!("{} - Time is up!", text),
+            }
+        }
+        text
+    }
+
     /// Returns the info in Waybar JSON format.
     pub fn get_json_info(&self) -> AppResult<String> {
         let time_left = self.get_time_left();
         let percentage = (time_left as f64 / self.duration as f64) * 100.0;
-        let text = get_human_readable_time(time_left);
+        let text = self.get_human_readable();
         let tooltip = match self.state {
             TimerState::Running => format!(
                 "Running\nLeft: {}\nElapsed: {} ",
-                get_human_readable_time(self.get_time_left()),
-                get_human_readable_time(self.get_time_elapsed())
+                convert_to_text_format(self.get_time_left()),
+                convert_to_text_format(self.get_time_elapsed())
             ),
             TimerState::Paused => format!(
                 "Paused\nLeft: {}\nElapsed: {} ",
-                get_human_readable_time(self.get_time_left()),
-                get_human_readable_time(self.get_time_elapsed())
+                convert_to_text_format(self.get_time_left()),
+                convert_to_text_format(self.get_time_elapsed())
             ),
             TimerState::Finished => "Finished".to_string(),
         }

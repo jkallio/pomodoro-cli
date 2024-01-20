@@ -30,7 +30,8 @@ $ cargo install pomodoro-cli
 - [x] Start/Stop the Timer
 - [x] Query the Timer status
 - [x] Add more time to a running timer.
-- [x] Wait for the Timer to finish (v1.2.0)
+- [x] Wait for the Timer to finish
+- [x] Add custom message to the timer status
 - [x] Triggers system notification when the Timer is finished
 - [x] Play alarm sound when the Timer is finished
 - [x] Easy Waybar integration
@@ -41,6 +42,7 @@ $ cargo install pomodoro-cli
 Options for `start`:
 - `--duration` Set the duration for the timer (format: `1h 30m 15s`)
 - `--add` Add more time to a running timer instead of starting a new timer (format: `1h 30m 15s`)
+- `--message` Add a custom message to the timer status
 - `--resume` Resume a paused timer (default: disabled)
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
 - `--silent` Do not play alarm sound when the timer is finished (default: enabled)

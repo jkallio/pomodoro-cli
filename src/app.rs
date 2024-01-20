@@ -15,15 +15,17 @@ pub fn run(args: &Cli) -> AppResult<()> {
     match &args.subcmd {
         SubCommand::Start {
             duration,
+            add,
+            message,
             silent,
             notify,
             wait,
-            add,
             resume,
         } => {
             start_timer(
                 parse_duration(duration.clone()),
                 parse_duration(add.clone()),
+                message.clone().unwrap_or("".to_string()),
                 *silent,
                 *notify,
                 *resume,
@@ -50,6 +52,7 @@ pub fn run(args: &Cli) -> AppResult<()> {
 pub fn start_timer(
     duration: Option<i64>,
     add: Option<i64>,
+    message: String,
     silent: bool,
     notify: bool,
     resume: bool,
@@ -65,6 +68,7 @@ pub fn start_timer(
         timer_info.duration = timer_info.duration - elapsed;
         timer_info.start_time = now;
         timer_info.pause_time = now;
+        timer_info.message = timer_info.message.clone();
         timer_info.silent = timer_info.silent || silent;
         timer_info.notify = timer_info.notify || notify;
         timer_info.state = TimerState::Running;
@@ -75,6 +79,7 @@ pub fn start_timer(
         timer_info.duration = duration;
         timer_info.start_time = now;
         timer_info.pause_time = now;
+        timer_info.message = message;
         timer_info.silent = silent;
         timer_info.notify = notify;
         timer_info.state = TimerState::Running;
@@ -95,6 +100,7 @@ pub fn pause_timer() -> AppResult<()> {
         start_timer(
             Some(timer_info.duration),
             None,
+            timer_info.message,
             timer_info.silent,
             timer_info.notify,
             false,
@@ -149,16 +155,7 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
 pub fn get_status(format: Option<StatusFormat>) -> AppResult<String> {
     let timer_info = TimerInfo::from_file_or_default()?;
     let status: String = match format {
-        Some(StatusFormat::Human) => match timer_info.state {
-            TimerState::Finished => "Finished".to_string(),
-            TimerState::Paused => format!(
-                "Paused ({} left)",
-                get_human_readable_time(timer_info.get_time_left())
-            ),
-            TimerState::Running => {
-                format!("{}", get_human_readable_time(timer_info.get_time_left()))
-            }
-        },
+        Some(StatusFormat::Human) => format!("{}", timer_info.get_human_readable()),
         Some(StatusFormat::Json) => format!("{}", timer_info.get_json_info()?),
         _ => format!("{}", timer_info.get_time_left()),
     };
@@ -178,7 +175,7 @@ pub fn wait_for_timer() -> AppResult<()> {
         execute!(stdout, Hide)?;
         loop {
             let timer_info = TimerInfo::from_file_or_default()?;
-            println!("{}", get_human_readable_time(timer_info.get_time_left()));
+            println!("{}", timer_info.get_human_readable());
 
             thread::sleep(std::time::Duration::from_millis(1000));
             execute!(

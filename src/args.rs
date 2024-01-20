@@ -29,10 +29,13 @@ pub enum SubCommand {
         #[arg(
             short,
             long,
-            conflicts_with_all = &["resume"],
+            conflicts_with = "resume",
             help = "Add more time to the timer"
         )]
         add: Option<String>,
+
+        #[arg(short, long, conflicts_with = "resume", help = "Timer message")]
+        message: Option<String>,
 
         #[arg(long, default_value_t = false, help = "Enable system notification")]
         notify: bool,

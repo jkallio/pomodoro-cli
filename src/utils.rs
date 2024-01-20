@@ -77,7 +77,7 @@ pub fn parse_duration(duration: Option<String>) -> Option<i64> {
 }
 
 /// Return the seconds in human-readable format (e.g. 1h 30m 10s)
-pub fn get_human_readable_time(seconds: i64) -> String {
+pub fn convert_to_text_format(seconds: i64) -> String {
     let mut seconds = seconds;
     let hours = seconds / 3600;
     seconds -= hours * 3600;
@@ -129,9 +129,9 @@ mod tests {
 
     #[test]
     fn test_get_human_readable_time() {
-        assert_eq!(get_human_readable_time(5410), "1h 30m 10s");
-        assert_eq!(get_human_readable_time(60), "1m");
-        assert_eq!(get_human_readable_time(10), "10s");
-        assert_eq!(get_human_readable_time(0), "0s");
+        assert_eq!(convert_to_text_format(5410), "1h 30m 10s");
+        assert_eq!(convert_to_text_format(60), "1m");
+        assert_eq!(convert_to_text_format(10), "10s");
+        assert_eq!(convert_to_text_format(0), "0s");
     }
 }

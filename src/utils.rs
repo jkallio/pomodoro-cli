@@ -1,46 +1,48 @@
+use crate::error::*;
 use std::path::PathBuf;
 
-/// Return the path to the timer information file. This is the cache directory on Linux and
-/// LocalAppData on Windows. In case the cache directory is not available, the current
-/// directory is used.
-pub fn get_timer_info_file() -> PathBuf {
-    let mut path = dirs::cache_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("pomodoro-cli-info.json");
-    path
+/// Create a valid file name from a String
+pub fn create_filename_from_string(name: &str) -> String {
+    let mut filename = name.to_lowercase();
+    filename.retain(|c| c.is_ascii_alphanumeric() || c == '_');
+    return filename;
 }
 
-/// Return the path to the custom audio file for the alarm. This is the config directory on Linux and RoamingAppData on Windows.
-/// In case the audio file is not found, `None` is returned.
-pub fn get_custom_alarm_file() -> Option<PathBuf> {
-    if let Some(mut path) = dirs::config_dir() {
-        path.push("pomodoro-cli");
-        path.push("alarm.mp3");
-        if path.exists() {
-            return Some(path);
-        }
+/// Create a new folder if it doesn't exist
+pub fn ensure_folder_exists(path: &PathBuf) -> AppResult<()> {
+    if !path.exists() {
+        std::fs::create_dir_all(path)?;
     }
-    None
+    Ok(())
 }
 
-/// Return the path to the custom icon file for the notification. This is the config directory on Linux and RoamingAppData on Windows.
-/// In case the icon file is not found, `None` is returned.
-/// The icon file must be a PNG file.
-pub fn get_custom_icon_file() -> Option<PathBuf> {
+/// Return the path to a file inside a cache directory. This is the cache directory on Linux and LocalAppData on Windows.
+pub fn create_cache_file_path(filename: &str) -> AppResult<PathBuf> {
+    if let Some(mut path) = dirs::cache_dir() {
+        path.push("pomodoro-cli");
+        ensure_folder_exists(&path)?;
+        path.push(filename);
+        return Ok(path);
+    }
+    Err(AppError::new("Failed to locate AppData / Cache directory"))
+}
+
+/// Return the path to a file inside a config directory. This is the config directory on Linux and RoamingAppData on Windows.
+pub fn create_config_file_path(filename: &str) -> AppResult<PathBuf> {
     if let Some(mut path) = dirs::config_dir() {
         path.push("pomodoro-cli");
-        path.push("icon.png");
-        if path.exists() {
-            return Some(path);
-        }
+        ensure_folder_exists(&path)?;
+        path.push(filename);
+        return Ok(path);
     }
-    None
+    Err(AppError::new("Failed to locate AppData / Config directory"))
 }
 
 /// The duration can be passed either as a number (as minutes) or as string in the format of "1h 30m 10s"
-pub fn parse_duration(duration: Option<String>) -> Option<i64> {
+pub fn parse_duration(duration: &Option<String>) -> AppResult<i64> {
     if let Some(duration) = duration {
         if let Ok(duration) = duration.parse::<i64>() {
-            return Some(duration * 60);
+            return Ok(duration * 60);
         }
 
         let mut duration = duration.to_lowercase();
@@ -71,9 +73,12 @@ pub fn parse_duration(duration: Option<String>) -> Option<i64> {
             let parts = duration.split("s").collect::<Vec<&str>>();
             seconds = parts[0].parse().unwrap_or_default();
         }
-        return Some(hours * 60 * 60 + minutes * 60 + seconds);
+        let duration = hours * 60 * 60 + minutes * 60 + seconds;
+        if duration > 0 {
+            return Ok(duration);
+        }
     }
-    None
+    Err(AppError::new("Failed to parse duration"))
 }
 
 /// Return the seconds in human-readable format (e.g. 1h 30m 10s)
@@ -112,19 +117,22 @@ mod tests {
 
     #[test]
     fn test_parse_duration() {
-        assert_eq!(parse_duration(Some("1h 30m 10s".to_string())), Some(5410));
         assert_eq!(
-            parse_duration(Some("1H 30Min 10SeC".to_string())),
-            Some(5410)
+            parse_duration(&Some("1h 30m 10s".to_string())).unwrap(),
+            5410
         );
-        assert_eq!(parse_duration(Some("2h15m1s".to_string())), Some(8101));
-        assert_eq!(parse_duration(Some("1h 30m".to_string())), Some(5400));
-        assert_eq!(parse_duration(Some("1hour".to_string())), Some(3600));
-        assert_eq!(parse_duration(Some("30m 10s".to_string())), Some(1810));
-        assert_eq!(parse_duration(Some("30m".to_string())), Some(1800));
-        assert_eq!(parse_duration(Some("10s".to_string())), Some(10));
-        assert_eq!(parse_duration(Some("100".to_string())), Some(100 * 60));
-        assert_eq!(parse_duration(Some("Invalid string".to_string())), Some(0));
+        assert_eq!(
+            parse_duration(&Some("1H 30Min 10SeC".to_string())).unwrap(),
+            5410
+        );
+        assert_eq!(parse_duration(&Some("2h15m1s".to_string())).unwrap(), 8101);
+        assert_eq!(parse_duration(&Some("1h 30m".to_string())).unwrap(), 5400);
+        assert_eq!(parse_duration(&Some("1hour".to_string())).unwrap(), 3600);
+        assert_eq!(parse_duration(&Some("30m 10s".to_string())).unwrap(), 1810);
+        assert_eq!(parse_duration(&Some("30m".to_string())).unwrap(), 1800);
+        assert_eq!(parse_duration(&Some("10s".to_string())).unwrap(), 10);
+        assert_eq!(parse_duration(&Some("100".to_string())).unwrap(), 100 * 60);
+        assert!(parse_duration(&Some("Invalid string".to_string())).is_err());
     }
 
     #[test]

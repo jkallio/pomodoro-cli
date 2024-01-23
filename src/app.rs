@@ -2,6 +2,7 @@ use crate::args::*;
 use crate::error::*;
 use crate::timer_info::DEFAULT_TIMER_DURATION;
 use crate::timer_info::{TimerInfo, TimerState};
+use crate::timer_profile::TimerProfile;
 use crate::utils::*;
 use crossterm::cursor::{MoveToColumn, MoveToPreviousLine};
 use crossterm::execute;
@@ -10,10 +11,35 @@ use notify_rust::Notification;
 use rodio::{Decoder, Source};
 use std::thread;
 
+pub const DEFAULT_ALERT_FILE: &str = "alarm.mp3";
+pub const DEFAULT_ICON_FILE: &str = "icon.png";
+
 /// Run the application with the given arguments
 pub fn run(args: &Cli) -> AppResult<()> {
     match &args.subcmd {
+        SubCommand::New {
+            profile,
+            sequence,
+            messages,
+            repeat,
+            alert_path,
+            icon_path,
+            notify,
+            silent,
+        } => {
+            create_timer_profile(
+                profile.clone(),
+                sequence.clone(),
+                messages.clone().unwrap_or_default(),
+                repeat.unwrap_or_else(|| 1),
+                alert_path.clone().unwrap_or_default(),
+                icon_path.clone().unwrap_or_default(),
+                *notify,
+                *silent,
+            )?;
+        }
         SubCommand::Start {
+            profile,
             duration,
             add,
             message,
@@ -22,14 +48,26 @@ pub fn run(args: &Cli) -> AppResult<()> {
             wait,
             resume,
         } => {
-            start_timer(
-                parse_duration(duration.clone()),
-                parse_duration(add.clone()),
-                message.clone().unwrap_or("".to_string()),
-                *silent,
-                *notify,
-                *resume,
-            )?;
+            if let Some(profile) = profile {
+                println!("Starting timer with profile: {}", profile);
+            } else {
+                start_timer(
+                    if let Ok(duration) = parse_duration(duration) {
+                        Some(duration)
+                    } else {
+                        None
+                    },
+                    if let Ok(add) = parse_duration(add) {
+                        Some(add)
+                    } else {
+                        None
+                    },
+                    message.clone().unwrap_or("".to_string()),
+                    *silent,
+                    *notify,
+                    *resume,
+                )?;
+            }
             if *wait {
                 wait_for_timer()?;
             }
@@ -123,8 +161,10 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
 
     if timer_info.notify {
         let mut path = String::from("dialog-warning");
-        if let Some(custom_icon_path) = get_custom_icon_file() {
-            path = custom_icon_path.to_str().unwrap_or(&path).to_string();
+        if let Ok(custom_icon_path) = create_config_file_path(DEFAULT_ICON_FILE) {
+            if custom_icon_path.exists() {
+                path = custom_icon_path.to_str().unwrap_or(&path).to_string();
+            }
         }
         Notification::new()
             .summary("Pomodoro Timer")
@@ -136,17 +176,22 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
 
     if !timer_info.silent {
         let (_stream, stream_handle) = rodio::OutputStream::try_default()?;
-        if let Some(path) = get_custom_alarm_file() {
-            let file = std::fs::File::open(path)?;
+        let custom_alert_path = create_config_file_path(DEFAULT_ALERT_FILE)?;
+        if custom_alert_path.exists() {
+            println!("Playing alert sound from: {:?}", custom_alert_path);
+            let file = std::fs::File::open(custom_alert_path)?;
             let source = Decoder::new(file)?;
             stream_handle.play_raw(source.convert_samples()).unwrap();
         } else {
+            println!("Playing default alert sound.");
             let mp3 = include_bytes!("../assets/ding.mp3");
             let cursor = std::io::Cursor::new(mp3);
             let source = Decoder::new_mp3(cursor)?;
             stream_handle.play_raw(source.convert_samples()).unwrap();
         }
+        // TODO: This is a hack to keep the thread alive until the sound is played.
         std::thread::sleep(std::time::Duration::from_millis(2000));
+        println!("Alert sound played.");
     }
     return Ok(());
 }
@@ -210,4 +255,39 @@ pub fn wait_for_timer() -> AppResult<()> {
         return Err(AppError::new(&format!("Error: {:?}", e)));
     }
     return Ok(());
+}
+
+/// Create a new timer profile
+fn create_timer_profile(
+    profile: String,
+    sequence: Vec<String>,
+    messages: Vec<String>,
+    repeat: u32,
+    alert_path: String,
+    icon_path: String,
+    notify: bool,
+    silent: bool,
+) -> AppResult<()> {
+    let sequence = sequence
+        .iter()
+        .map(|s| {
+            parse_duration(&Some(s.to_string())).unwrap_or_else(|e| {
+                eprintln!("{}", e);
+                return 0;
+            })
+        })
+        .collect::<Vec<i64>>();
+
+    let timer_profile = TimerProfile {
+        name: profile,
+        sequence,
+        messages,
+        repeat,
+        alert_path,
+        icon_path,
+        silent,
+        notify,
+    };
+    timer_profile.write_to_file()?;
+    Ok(())
 }

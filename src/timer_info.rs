@@ -7,6 +7,9 @@ use std::io::prelude::*;
 /// The default duration of the timer in seconds
 pub const DEFAULT_TIMER_DURATION: i64 = 25 * 60;
 
+/// The timer info file name
+pub const TIMER_INFO_FILE: &str = "timer_info.json";
+
 /// Defines the state of the timer
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum TimerState {
@@ -19,6 +22,7 @@ pub enum TimerState {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TimerInfo {
     pub state: TimerState,
+    pub profile: Option<(String, usize)>,
     pub start_time: i64,
     pub pause_time: i64,
     pub duration: i64,
@@ -42,6 +46,7 @@ impl Default for TimerInfo {
         let start_time = chrono::Utc::now().timestamp();
         Self {
             state: TimerState::Paused,
+            profile: None,
             start_time,
             pause_time: start_time,
             duration: DEFAULT_TIMER_DURATION,
@@ -57,17 +62,15 @@ impl Default for TimerInfo {
 impl TimerInfo {
     /// Initialize the TimerInfo from the stored JSON file. Defaults to default values if the file does not exist.
     pub fn from_file_or_default() -> AppResult<Self> {
-        let path = get_timer_info_file();
-        if !path.exists() {
-            return Ok(Self::default());
-        }
+        let path = create_cache_file_path(TIMER_INFO_FILE)?;
+        if path.exists() {
+            let mut contents = String::new();
+            let mut file = std::fs::File::open(path)?;
 
-        let mut contents = String::new();
-        let mut file = std::fs::File::open(path)?;
-
-        file.read_to_string(&mut contents)?;
-        if let Ok(timer_info) = serde_json::from_str(&contents) {
-            return Ok(timer_info);
+            file.read_to_string(&mut contents)?;
+            if let Ok(timer_info) = serde_json::from_str(&contents) {
+                return Ok(timer_info);
+            }
         }
         Ok(Self::default())
     }
@@ -154,7 +157,7 @@ impl TimerInfo {
 
     /// Write the TimerInfo to the JSON file.
     pub fn write_to_file(&self) -> AppResult<()> {
-        let path = get_timer_info_file();
+        let path = create_cache_file_path(TIMER_INFO_FILE)?;
         let mut file = File::create(path)?;
         let json = serde_json::to_string_pretty(&self)?;
         file.write_all(json.as_bytes())?;
@@ -164,7 +167,7 @@ impl TimerInfo {
     /// Remove the JSON file from the system cache directory.
     #[allow(dead_code)]
     pub fn remove_info_file() -> AppResult<()> {
-        let path = get_timer_info_file();
+        let path = create_cache_file_path(TIMER_INFO_FILE)?;
         if path.exists() {
             std::fs::remove_file(path)?;
         }
@@ -174,8 +177,10 @@ impl TimerInfo {
     /// Returns true if the JSON file exists in the system cache directory.
     #[allow(dead_code)]
     pub fn info_file_exists() -> bool {
-        let path = get_timer_info_file();
-        path.exists()
+        if let Ok(path) = create_cache_file_path(TIMER_INFO_FILE) {
+            return path.exists();
+        }
+        return false;
     }
 }
 

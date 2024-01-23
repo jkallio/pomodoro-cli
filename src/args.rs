@@ -16,8 +16,54 @@ pub struct Cli {
 /// Defines the subcommands for the CLI
 #[derive(Subcommand, Debug)]
 pub enum SubCommand {
+    /// Create a new timer profile
+    New {
+        #[arg(short, long, help = "Timer profile name")]
+        profile: String,
+
+        #[arg(
+            short,
+            long,
+            help = "Timer sequence in format 1h 30m 20s",
+            required = true,
+            num_args = 1..
+        )]
+        sequence: Vec<String>,
+
+        #[arg(
+            short,
+            long,
+            help = "Timer messages",
+            required = true,
+            num_args = 1..
+        )]
+        messages: Option<Vec<String>>,
+
+        #[arg(long, help = "Repeat the timer sequence")]
+        repeat: Option<u32>,
+
+        #[arg(short, long, help = "Path to the alarm sound")]
+        alert_path: Option<String>,
+
+        #[arg(short, long, help = "Path to the notification icon")]
+        icon_path: Option<String>,
+
+        #[arg(long, default_value_t = false, help = "Enable system notification")]
+        notify: bool,
+
+        #[arg(long, default_value_t = true, help = "Disable the alarm sound")]
+        silent: bool,
+    },
     /// Start a new timer
     Start {
+        #[arg(
+            short,
+            long,
+            help = "Timer profile name",
+            conflicts_with_all = &["duration", "add", "resume", "message", "notify", "silent", "wait"],
+        )]
+        profile: Option<String>,
+
         #[arg(
             short,
             long,

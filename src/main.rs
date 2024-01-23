@@ -2,6 +2,7 @@ mod app;
 mod args;
 mod error;
 mod timer_info;
+mod timer_profile;
 mod utils;
 
 use crate::args::Cli;

@@ -1,3 +1,4 @@
+use crate::args::TimeFormat;
 use std::path::PathBuf;
 
 /// Return the path to the timer information file. This is the cache directory on Linux and
@@ -43,6 +44,17 @@ pub fn parse_duration(duration: Option<String>) -> Option<i64> {
             return Some(duration * 60);
         }
 
+        if duration.contains(":") {
+            let mut parts = duration.split(":");
+            let mut hours: i64 = 0;
+            if parts.clone().count() > 2 {
+                hours = parts.next().unwrap_or_default().parse().unwrap_or_default();
+            }
+            let minutes: i64 = parts.next().unwrap_or_default().parse().unwrap_or_default();
+            let seconds: i64 = parts.next().unwrap_or_default().parse().unwrap_or_default();
+            return Some(hours * 3600 + minutes * 60 + seconds);
+        }
+
         let mut duration = duration.to_lowercase();
         duration.retain(|c| !c.is_whitespace());
         duration = duration.replace("hour", "h");
@@ -76,14 +88,19 @@ pub fn parse_duration(duration: Option<String>) -> Option<i64> {
     None
 }
 
-/// Return the seconds in human-readable format (e.g. 1h 30m 10s)
-pub fn convert_to_text_format(seconds: i64) -> String {
+/// Return the hours, minutes and seconds from the total seconds
+fn get_time_segments(seconds: i64) -> (i64, i64, i64) {
     let mut seconds = seconds;
     let hours = seconds / 3600;
     seconds -= hours * 3600;
     let minutes = (seconds % 3600) / 60;
     seconds -= minutes * 60;
+    return (hours, minutes, seconds);
+}
 
+/// Return the seconds in segmented time format (e.g. 1h 30m 10s)
+fn convert_to_segmented_format(seconds: i64) -> String {
+    let (hours, minutes, seconds) = get_time_segments(seconds);
     let mut time = String::new();
     if hours > 0 {
         time.push_str(&format!("{}h", hours));
@@ -104,6 +121,24 @@ pub fn convert_to_text_format(seconds: i64) -> String {
         time.push_str("0s");
     }
     return time;
+}
+
+/// Return the seconds in digit format (e.g. 01:30:10)
+fn convert_to_digital_format(seconds: i64) -> String {
+    let (hours, minutes, seconds) = get_time_segments(seconds);
+    return if hours > 0 {
+        format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+    } else {
+        format!("{:02}:{:02}", minutes, seconds)
+    };
+}
+
+pub fn convert_to_time_format(seconds: i64, time_format: TimeFormat) -> String {
+    match time_format {
+        TimeFormat::Digital => convert_to_digital_format(seconds),
+        TimeFormat::Segmented => convert_to_segmented_format(seconds),
+        TimeFormat::Seconds => seconds.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -129,9 +164,17 @@ mod tests {
 
     #[test]
     fn test_get_human_readable_time() {
-        assert_eq!(convert_to_text_format(5410), "1h 30m 10s");
-        assert_eq!(convert_to_text_format(60), "1m");
-        assert_eq!(convert_to_text_format(10), "10s");
-        assert_eq!(convert_to_text_format(0), "0s");
+        assert_eq!(convert_to_segmented_format(5411), "1h 30m 11s");
+        assert_eq!(convert_to_segmented_format(60), "1m");
+        assert_eq!(convert_to_segmented_format(10), "10s");
+        assert_eq!(convert_to_segmented_format(0), "0s");
+    }
+
+    #[test]
+    fn test_digit_format() {
+        assert_eq!(convert_to_digital_format(5411), "01:30:11");
+        assert_eq!(convert_to_digital_format(60), "01:00");
+        assert_eq!(convert_to_digital_format(10), "00:10");
+        assert_eq!(convert_to_digital_format(0), "00:00");
     }
 }

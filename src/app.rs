@@ -6,9 +6,10 @@ use crate::utils::*;
 use crossterm::cursor::{MoveToColumn, MoveToPreviousLine};
 use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType};
-use notify_rust::Notification;
-use rodio::{Decoder, Source};
+use notify_rust::{Notification, Timeout};
+use rodio::{Decoder, OutputStream, Sink};
 use std::thread;
+use std::time::Duration;
 
 /// Run the application with the given arguments
 pub fn run(args: &Cli) -> AppResult<()> {
@@ -40,8 +41,11 @@ pub fn run(args: &Cli) -> AppResult<()> {
         SubCommand::Stop => {
             stop_timer()?;
         }
-        SubCommand::Status { format } => {
-            let status = get_status(*format)?;
+        SubCommand::Status {
+            format,
+            time_format,
+        } => {
+            let status = get_status(*format, *time_format)?;
             println!("{}", status);
         }
     }
@@ -91,20 +95,20 @@ pub fn start_timer(
 /// Pause the timer. If the timer is already paused, the timer is resumed.
 pub fn pause_timer() -> AppResult<()> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
-    if timer_info.is_running() {
-        let now = chrono::Utc::now().timestamp();
-        timer_info.pause_time = now;
-        timer_info.state = TimerState::Paused;
-        timer_info.write_to_file()?;
-    } else {
+    if timer_info.is_paused() {
         start_timer(
             Some(timer_info.duration),
             None,
             timer_info.message,
             timer_info.silent,
             timer_info.notify,
-            false,
+            true,
         )?;
+    } else if timer_info.is_running() {
+        let now = chrono::Utc::now().timestamp();
+        timer_info.pause_time = now;
+        timer_info.state = TimerState::Paused;
+        timer_info.write_to_file()?;
     }
     Ok(())
 }
@@ -131,33 +135,48 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
             .body("Time is up!")
             .icon(&path)
             .appname("pomodoro-cli")
+            .timeout(Timeout::from(Duration::from_secs(300)))
             .show()?;
     }
 
     if !timer_info.silent {
-        let (_stream, stream_handle) = rodio::OutputStream::try_default()?;
+        let (_stream, stream_handle) = OutputStream::try_default()?;
+        let sink = Sink::try_new(&stream_handle).unwrap();
         if let Some(path) = get_custom_alarm_file() {
             let file = std::fs::File::open(path)?;
             let source = Decoder::new(file)?;
-            stream_handle.play_raw(source.convert_samples()).unwrap();
+            sink.append(source);
         } else {
             let mp3 = include_bytes!("../assets/ding.mp3");
-            let cursor = std::io::Cursor::new(mp3);
-            let source = Decoder::new_mp3(cursor)?;
-            stream_handle.play_raw(source.convert_samples()).unwrap();
+            let source = Decoder::new(std::io::Cursor::new(mp3))?;
+            sink.append(source);
         }
-        std::thread::sleep(std::time::Duration::from_millis(2000));
+        sink.set_volume(1.0);
+        sink.sleep_until_end();
+        sink.clear();
     }
     return Ok(());
 }
 
 /// Return the status of the timer in the given format.
-pub fn get_status(format: Option<StatusFormat>) -> AppResult<String> {
+pub fn get_status(
+    format: Option<StatusFormat>,
+    time_format: Option<TimeFormat>,
+) -> AppResult<String> {
     let timer_info = TimerInfo::from_file_or_default()?;
     let status: String = match format {
-        Some(StatusFormat::Human) => format!("{}", timer_info.get_human_readable()),
-        Some(StatusFormat::Json) => format!("{}", timer_info.get_json_info()?),
-        _ => format!("{}", timer_info.get_time_left()),
+        Some(StatusFormat::Json) => {
+            format!(
+                "{}",
+                timer_info.get_json_info(time_format.unwrap_or_default())?
+            )
+        }
+        _ => {
+            format!(
+                "{}",
+                timer_info.get_human_readable(time_format.unwrap_or_default())
+            )
+        }
     };
 
     if timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out() {
@@ -182,7 +201,7 @@ pub fn wait_for_timer() -> AppResult<()> {
             for _ in 0..(25 - percentage) {
                 print!("-");
             }
-            println!("| {}", timer_info.get_human_readable());
+            println!("| {}", timer_info.get_human_readable(TimeFormat::default()));
 
             thread::sleep(std::time::Duration::from_millis(1000));
             execute!(

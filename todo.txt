@@ -1,0 +1,3 @@
+[x] Add digital time format
+[x] Fix pause not resuming
+[x] Fix alarm sound not playing fully

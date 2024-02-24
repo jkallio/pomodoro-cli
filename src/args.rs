@@ -22,7 +22,7 @@ pub enum SubCommand {
             short,
             long,
             conflicts_with_all = &["add", "resume"],
-            help = "Duration of the timer in format 1h 30m 20s"
+            help = "Duration of the timer ('10m 30s' or '10:30')"
         )]
         duration: Option<String>,
 
@@ -55,8 +55,11 @@ pub enum SubCommand {
     Pause,
     /// Get the current status of the timer
     Status {
-        #[arg(short, long, help = "Status format [seconds/human-readable/JSON]")]
+        #[arg(short, long, help = "Status format")]
         format: Option<StatusFormat>,
+
+        #[arg(short, long, help = "Time format")]
+        time_format: Option<TimeFormat>,
     },
 }
 
@@ -65,7 +68,16 @@ pub enum SubCommand {
 #[serde(rename_all = "lowercase")]
 pub enum StatusFormat {
     #[default]
-    Seconds,
     Human,
     Json,
+}
+
+/// Defines the time format for the status command
+#[derive(clap::ValueEnum, Clone, Default, Debug, Serialize, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum TimeFormat {
+    #[default]
+    Digital, // 10:30
+    Segmented, // 1h 10m 30s
+    Seconds,   // 630
 }

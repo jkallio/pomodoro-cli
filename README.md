@@ -1,7 +1,7 @@
 <div align="center">
 
-#  pomodoro-cli
-# Pomodoro Timer Command Line Interface
+# ![ ](./assets/icon_small.png) pomodoro-cli
+### Pomodoro Timer Command Line Interface
 
 Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
@@ -27,7 +27,7 @@ $ cargo install pomodoro-cli
 
 # Features
 
-- [x] Start/Stop the Timer
+- [x] Start/Stop/Pause the Timer
 - [x] Query the Timer status
 - [x] Add more time to a running timer.
 - [x] Wait for the Timer to finish
@@ -40,8 +40,8 @@ $ cargo install pomodoro-cli
 # Usage
 
 Options for `start`:
-- `--duration` Set the duration for the timer (format: `1h 30m 15s`)
-- `--add` Add more time to a running timer instead of starting a new timer (format: `1h 30m 15s`)
+- `--duration` Set the duration for the timer (format: `1h 30m 15s` or `10:30`)
+- `--add` Add more time to a running timer instead of starting a new timer
 - `--message` Add a custom message to the timer status
 - `--resume` Resume a paused timer (default: disabled)
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
@@ -81,14 +81,20 @@ $ pomodoro-cli start -add 10m
 ### Query the timer status
 
 ```bash
-# Get remaining time in seconds (This is the default behavior for `status`)
-$ pomodoro-cli status --format seconds
-
 ## Get remaining time in human readable format
 $ pomodoro-cli status --format human
 
 # Get the timer status in JSON format (for Waybar integration)
 $ pomodoro-cli status --format json
+
+# Specify the timer format in digital format (10:30) -- default
+$ pomodoro-cli status --format human --time-format digital
+
+# Specify the time format in segmented format (1h 30m 15s)
+$ pomodoro-cli status --format human --time-format segmented
+
+# Specify the time format in seconds
+$ pomodoro-cli status --format human --time-format seconds
 ```
 
 # Waybar integration
@@ -100,7 +106,7 @@ Add the following module to your waybar configuration:
 ```json
 "custom/pomo": {
     "format": "   {}",
-    "exec": "pomodoro-cli status --format json",
+    "exec": "pomodoro-cli status --format json --time-format digital",
     "return-type": "json",
     "on-click": "pomodoro-cli start --add 5m --notify",
     "on-click-middle": "pomodoro-cli pause",
@@ -111,19 +117,19 @@ Add the following module to your waybar configuration:
 
 ### CSS styling
 
-The module supports three different states: `running`, `paused` and `stopped`. You can customize the styling of each state by adding the following CSS rules to your Waybar configuration:
+The module supports three different states: `running`, `paused` and `finished`. You can customize the styling of each state by adding the following CSS rules to your Waybar configuration:
 
 ```css
-#custom-pomo.finished {
-  background: #8F0808;
-}
-
 #custom-pomo.running {
   background: #304D30;
 }
 
 #custom-pomo.paused {
   background: #AB730A;
+}
+
+#custom-pomo.finished {
+  background: #8F0808;
 }
 ```
 

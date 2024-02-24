@@ -1,3 +1,4 @@
+use crate::args::TimeFormat;
 use crate::error::*;
 use crate::utils::*;
 use serde::{Deserialize, Serialize};
@@ -83,7 +84,7 @@ impl TimerInfo {
     }
 
     pub fn is_time_run_out(&self) -> bool {
-        self.get_time_left() <= 0
+        self.get_time_left() < 0
     }
 
     /// Returns the time left in the timer in seconds.
@@ -96,8 +97,8 @@ impl TimerInfo {
     }
 
     /// Returns the info in human readable format.
-    pub fn get_human_readable(&self) -> String {
-        let mut text = convert_to_text_format(self.get_time_left());
+    pub fn get_human_readable(&self, time_format: TimeFormat) -> String {
+        let mut text = convert_to_time_format(self.get_time_left(), time_format);
         if !self.message.is_empty() {
             match self.state {
                 TimerState::Running => text = format!("{} - {}", text, self.message),
@@ -109,18 +110,18 @@ impl TimerInfo {
     }
 
     /// Returns the info in Waybar JSON format.
-    pub fn get_json_info(&self) -> AppResult<String> {
-        let text = self.get_human_readable();
+    pub fn get_json_info(&self, time_format: TimeFormat) -> AppResult<String> {
+        let text = self.get_human_readable(time_format);
         let tooltip = match self.state {
             TimerState::Running => format!(
                 "Running\nLeft: {}\nElapsed: {} ",
-                convert_to_text_format(self.get_time_left()),
-                convert_to_text_format(self.get_time_elapsed())
+                convert_to_time_format(self.get_time_left(), time_format),
+                convert_to_time_format(self.get_time_elapsed(), time_format)
             ),
             TimerState::Paused => format!(
                 "Paused\nLeft: {}\nElapsed: {} ",
-                convert_to_text_format(self.get_time_left()),
-                convert_to_text_format(self.get_time_elapsed())
+                convert_to_time_format(self.get_time_left(), time_format),
+                convert_to_time_format(self.get_time_elapsed(), time_format)
             ),
             TimerState::Finished => "Finished".to_string(),
         }

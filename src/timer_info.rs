@@ -27,6 +27,7 @@ pub struct TimerInfo {
     pub silent: bool,
     pub notify: bool,
     pub wait: bool,
+    pub lock_screen: bool,
 }
 
 #[derive(Serialize)]
@@ -50,6 +51,7 @@ impl Default for TimerInfo {
             silent: false,
             notify: false,
             wait: false,
+            lock_screen: false,
         }
     }
 }

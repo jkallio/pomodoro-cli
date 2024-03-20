@@ -36,6 +36,7 @@ $ cargo install pomodoro-cli
 - [x] Play alarm sound when the Timer is finished
 - [x] Easy Waybar integration
 - [x] Customize notification icon and alarm sound
+- [ ] Allow lock screen when the timer is ran out
 
 # Usage
 
@@ -47,6 +48,7 @@ Options for `start`:
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
 - `--silent` Do not play alarm sound when the timer is finished (default: enabled)
 - `--wait` Wait for the timer to finish (default: disabled)
+- `--lock-screen` Wait for the timer to finish and lock the screen once the timer is finished (default: disabled)
 
 ### Start/Stop the timer
 

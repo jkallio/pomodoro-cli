@@ -36,7 +36,7 @@ $ cargo install pomodoro-cli
 - [x] Play alarm sound when the Timer is finished
 - [x] Easy Waybar integration
 - [x] Customize notification icon and alarm sound
-- [ ] Allow lock screen when the timer is ran out
+- [x] Allow lock screen when the timer is ran out
 
 # Usage
 

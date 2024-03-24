@@ -6,7 +6,7 @@ use crate::utils::*;
 use crossterm::cursor::{MoveToColumn, MoveToPreviousLine};
 use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType};
-use enigo::*;
+use lock::FailureReason;
 use notify_rust::{Notification, Timeout};
 use rodio::{Decoder, OutputStream, Sink};
 use std::thread;
@@ -128,25 +128,21 @@ pub fn stop_timer() -> AppResult<()> {
     Ok(())
 }
 
+/// Lock the screen.
 fn lock_screen() -> AppResult<()> {
     println!("Locking screen...");
-    let mut enigo = Enigo::new();
 
-    enigo.key_down(Key::Meta); // The meta key is meta key (also known as “windows”, “super”, and “command”)
-
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
-    enigo.key_click(Key::Layout('l'));
-
-    #[cfg(target_os = "macos")]
-    {
-        enigo.key_down(Key::Control);
-        enigo.key_click(Key::Layout('q'));
-        enigo.key_up(Key::Control);
-    }
-
-    enigo.key_up(Key::Meta);
-
-    Ok(())
+    lock::lock().map_err(|fail| {
+        AppError::new(match fail {
+            FailureReason::CannotExecute => "Cannot execute the lock command.",
+            FailureReason::LinuxCommandNotFound => {
+                "Linux command not found. The following commands are supported\
+                    \n- xdg-screensaver\
+                    \n- gnome-screensaver\
+                    \n- dm-tool"
+            }
+        })
+    })
 }
 
 /// Trigger the alarm sound and/or the system notification.

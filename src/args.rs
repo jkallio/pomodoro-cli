@@ -48,6 +48,13 @@ pub enum SubCommand {
 
         #[arg(long, default_value_t = false, help = "Resume paused timer")]
         resume: bool,
+
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Lock the screen when the timer finishes"
+        )]
+        lock_screen: bool,
     },
     /// Stop the timer
     Stop,

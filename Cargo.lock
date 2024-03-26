@@ -1076,6 +1076,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4cd1a83af159aa67994778be9070f0ae1bd732942279cabb14f86f986a21456"
 
 [[package]]
+name = "lock"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "058cf9c2b0daa80dafc6d65b594ea04db8050522cfbf39f5d5aef2184f2a5a55"
+
+[[package]]
 name = "lock_api"
 version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1459,12 +1465,13 @@ dependencies = [
 
 [[package]]
 name = "pomodoro-cli"
-version = "1.2.4"
+version = "1.2.5"
 dependencies = [
  "chrono",
  "clap",
  "crossterm",
  "dirs",
+ "lock",
  "notify-rust",
  "rodio",
  "serde",

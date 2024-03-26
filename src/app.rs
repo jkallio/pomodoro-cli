@@ -6,6 +6,7 @@ use crate::utils::*;
 use crossterm::cursor::{MoveToColumn, MoveToPreviousLine};
 use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType};
+use lock::FailureReason;
 use notify_rust::{Notification, Timeout};
 use rodio::{Decoder, OutputStream, Sink};
 use std::thread;
@@ -22,6 +23,7 @@ pub fn run(args: &Cli) -> AppResult<()> {
             notify,
             wait,
             resume,
+            lock_screen,
         } => {
             start_timer(
                 parse_duration(duration.clone()),
@@ -30,8 +32,9 @@ pub fn run(args: &Cli) -> AppResult<()> {
                 *silent,
                 *notify,
                 *resume,
+                *lock_screen,
             )?;
-            if *wait {
+            if *wait || *lock_screen {
                 wait_for_timer()?;
             }
         }
@@ -60,6 +63,7 @@ pub fn start_timer(
     silent: bool,
     notify: bool,
     resume: bool,
+    lock_screen: bool,
 ) -> AppResult<()> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
     if timer_info.is_running() && add.is_some() {
@@ -75,6 +79,7 @@ pub fn start_timer(
         timer_info.message = timer_info.message.clone();
         timer_info.silent = timer_info.silent || silent;
         timer_info.notify = timer_info.notify || notify;
+        timer_info.lock_screen = timer_info.lock_screen || lock_screen;
         timer_info.state = TimerState::Running;
     } else {
         // Start a new timer
@@ -87,6 +92,7 @@ pub fn start_timer(
         timer_info.silent = silent;
         timer_info.notify = notify;
         timer_info.state = TimerState::Running;
+        timer_info.lock_screen = lock_screen;
     }
     timer_info.write_to_file()?;
     Ok(())
@@ -103,6 +109,7 @@ pub fn pause_timer() -> AppResult<()> {
             timer_info.silent,
             timer_info.notify,
             true,
+            timer_info.lock_screen,
         )?;
     } else if timer_info.is_running() {
         let now = chrono::Utc::now().timestamp();
@@ -119,6 +126,23 @@ pub fn stop_timer() -> AppResult<()> {
     timer_info.state = TimerState::Finished;
     timer_info.write_to_file()?;
     Ok(())
+}
+
+/// Lock the screen.
+fn lock_screen() -> AppResult<()> {
+    println!("Locking screen...");
+
+    lock::lock().map_err(|fail| {
+        AppError::new(match fail {
+            FailureReason::CannotExecute => "Cannot execute the lock command.",
+            FailureReason::LinuxCommandNotFound => {
+                "Linux command not found. The following commands are supported\
+                    \n- xdg-screensaver\
+                    \n- gnome-screensaver\
+                    \n- dm-tool"
+            }
+        })
+    })
 }
 
 /// Trigger the alarm sound and/or the system notification.
@@ -155,6 +179,12 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
         sink.sleep_until_end();
         sink.clear();
     }
+
+    // Now check if the lock screen option is enabled
+    if timer_info.lock_screen {
+        lock_screen()?;
+    }
+
     return Ok(());
 }
 

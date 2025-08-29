@@ -13,6 +13,12 @@ Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
 </div>
 
+# Requirements
+
+- libasound2 development files
+    - `apt-get install libasound2-dev` on Debian derivatives
+    - `dnf install alsa-lib-devel` on Fedora
+
 # Installation
 
 ### Download binary

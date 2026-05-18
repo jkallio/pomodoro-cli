@@ -67,6 +67,14 @@ pub enum SubCommand {
 
         #[arg(short, long, help = "Time format")]
         time_format: Option<TimeFormat>,
+
+        #[arg(
+            short,
+            long,
+            default_value_t = false,
+            help = "Stream status continuously (one JSON line per second, for Waybar exec without interval)"
+        )]
+        watch: bool,
     },
 }
 

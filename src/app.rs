@@ -48,9 +48,14 @@ pub fn run(args: &Cli) -> AppResult<()> {
         SubCommand::Status {
             format,
             time_format,
+            watch,
         } => {
-            let status = get_status(*format, *time_format)?;
-            println!("{}", status);
+            if *watch {
+                watch_status(*format, *time_format)?;
+            } else {
+                let status = get_status(*format, *time_format)?;
+                println!("{}", status);
+            }
         }
     }
     Ok(())
@@ -212,6 +217,21 @@ pub fn get_status(
     Ok(status)
 }
 
+/// Stream status to stdout once per second (Waybar streaming/daemon mode).
+pub fn watch_status(
+    format: Option<StatusFormat>,
+    time_format: Option<TimeFormat>,
+) -> AppResult<()> {
+    use std::io::Write;
+    let mut stdout = std::io::stdout();
+    loop {
+        let status = get_status(format, time_format)?;
+        writeln!(stdout, "{}", status)?;
+        stdout.flush()?;
+        thread::sleep(Duration::from_secs(1));
+    }
+}
+
 /// Wait for the timer to finish.
 pub fn wait_for_timer() -> AppResult<()> {
     let timer_thrd = thread::spawn(move || -> AppResult<()> {
@@ -228,7 +248,7 @@ pub fn wait_for_timer() -> AppResult<()> {
             }
             println!("| {}", timer_info.get_human_readable(TimeFormat::default()));
 
-            thread::sleep(std::time::Duration::from_millis(1000));
+            thread::sleep(std::time::Duration::from_secs(1));
             execute!(
                 stdout,
                 MoveToPreviousLine(1),

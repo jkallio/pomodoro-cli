@@ -5,7 +5,7 @@
 
 Pomodoro timer is a simple timer that helps you to stay focused on your tasks.
 
-`pomodoro-cli` is a CLI application which implements the basic functionalities of a basic Pomodoro timer. This application was designed to be used with [waybar](https://github.com/Alexays/Waybar).
+`pomodoro-cli` is a CLI application which implements the basic functionalities of a Pomodoro timer. It integrates well with [waybar](https://github.com/Alexays/Waybar) but works as a standalone timer too.
 
 [![Rust](https://img.shields.io/badge/Rust-orange.svg)](https://www.rust-lang.org/)
 [![Crates.io](https://img.shields.io/crates/v/pomodoro-cli.svg)](https://crates.io/crates/pomodoro-cli)
@@ -37,12 +37,14 @@ $ cargo install pomodoro-cli
 - [x] Query the Timer status
 - [x] Add more time to a running timer.
 - [x] Wait for the Timer to finish
-- [x] Add custom message to the timer status
+- [x] Stream status continuously (one line per second for Waybar integration)
+- [x] Add a custom message to the timer status
 - [x] Triggers system notification when the Timer is finished
 - [x] Play alarm sound when the Timer is finished
-- [x] Easy Waybar integration
+- [x] Easy Waybar integration (streaming daemon mode)
 - [x] Customize notification icon and alarm sound
-- [x] Allow lock screen when the timer ran out
+- [x] Lock the screen when the timer expires
+
 
 # Usage
 
@@ -52,9 +54,9 @@ Options for `start`:
 - `--message` Add a custom message to the timer status
 - `--resume` Resume a paused timer (default: disabled)
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
-- `--silent` Do not play alarm sound when the timer is finished (default: enabled)
+- `--silent` Suppress alarm sound when the timer finishes (alarm plays by default)
 - `--wait` Wait for the timer to finish (default: disabled)
-- `--lock-screen` Wait for the timer to finish and lock the screen once the timer is finished (default: disabled)
+- `--lock-screen` Wait for the timer to finish, then lock the screen (default: disabled)
 
 ### Start/Stop the timer
 
@@ -62,7 +64,7 @@ Options for `start`:
 # Start the timer with default configuration (25 min with alarm sound)
 $ pomodoro-cli start
 
-# Start a 30 min timer wihout playing alarm sound, but triggering a system notification
+# Start a 30 min timer without playing alarm sound, but triggering a system notification
 $ pomodoro-cli start --duration "30m" --silent --notify
 
 # Stop the timer
@@ -83,13 +85,13 @@ $ pomodoro-cli start --resume
 
 ```bash
 # Add 10 minutes to the timer (instead of starting a new timer)
-$ pomodoro-cli start -add 10m
+$ pomodoro-cli start --add 10m
 ```
 
 ### Query the timer status
 
 ```bash
-## Get remaining time in human readable format
+# Get remaining time in human readable format
 $ pomodoro-cli status --format human
 
 # Get the timer status in JSON format (for Waybar integration)
@@ -103,6 +105,9 @@ $ pomodoro-cli status --format human --time-format segmented
 
 # Specify the time format in seconds
 $ pomodoro-cli status --format human --time-format seconds
+
+# Stream status continuously (one line per second) — used for Waybar daemon mode
+$ pomodoro-cli status --watch --format json
 ```
 
 # Waybar integration
@@ -114,14 +119,16 @@ Add the following module to your waybar configuration:
 ```json
 "custom/pomo": {
     "format": "   {}",
-    "exec": "pomodoro-cli status --format json --time-format digital",
+    "exec": "pomodoro-cli status --watch --format json --time-format digital",
     "return-type": "json",
+    "restart-interval": 5,
     "on-click": "pomodoro-cli start --add 5m --notify",
     "on-click-middle": "pomodoro-cli pause",
-    "on-click-right": "pomodoro-cli stop",
-    "interval": 1
+    "on-click-right": "pomodoro-cli stop"
 },
 ```
+
+Using `--watch` runs a single long-lived process that streams one JSON line per second. Waybar restarts it automatically after `restart-interval` seconds if it ever exits.
 
 ### CSS styling
 
@@ -143,34 +150,42 @@ The module supports three different states: `running`, `paused` and `finished`. 
 
 ###  Update Waybar module immediately
 
-If you want to signal Waybar to update the module immediately when you can add `pkill -SIGRTMIN+10 waybar` to the `on-click` commands. For example:
+In `--watch` mode, the display updates every second automatically. If you also want the bar to refresh immediately on a button click (e.g. after pausing), add `pkill -SIGRTMIN+10 waybar` to the `on-click` commands and set `"signal": 10`:
 
 ```json
 "custom/pomo": {
-    "on-click": "pomodoro-cli start --add 5m; pkill -SIGRTMIN+10 waybar",
+    "exec": "pomodoro-cli status --watch --format json --time-format digital",
+    "restart-interval": 5,
     "signal": 10,
+    "on-click": "pomodoro-cli start --add 5m --notify; pkill -SIGRTMIN+10 waybar",
+    "on-click-middle": "pomodoro-cli pause; pkill -SIGRTMIN+10 waybar",
+    "on-click-right": "pomodoro-cli stop; pkill -SIGRTMIN+10 waybar"
 }
 ```
 
 # Customization
 
-## Set custom alarm sound
-
-If you want to use a custom alarm sound, just add a `alarm.mp3` file in the `~/.config/pomodoro-cli` directory.
+Custom files are loaded from `~/.config/pomodoro-cli/`. Create the directory once if it doesn't exist:
 
 ```bash
 $ mkdir -p ~/.config/pomodoro-cli
+```
+
+## Set custom alarm sound
+
+Place an `alarm.mp3` file in the configuration directory:
+
+```bash
 $ cp /path/to/alarm.mp3 ~/.config/pomodoro-cli/alarm.mp3
 ```
 
-## Set custom notification icon 
+## Set custom notification icon
 
 ![Waybar](./assets/screenshot_notification.png)
 
-If you want to use a custom notification icon, just add a `icon.png` file in the `~/.config/pomodoro-cli` directory.
+Place an `icon.png` file in the configuration directory:
 
 ```bash
-$ mkdir -p ~/.config/pomodoro-cli
 $ cp /path/to/icon.png ~/.config/pomodoro-cli/icon.png
 ```
 

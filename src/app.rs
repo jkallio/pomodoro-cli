@@ -42,16 +42,17 @@ pub fn run(args: &Cli) -> AppResult<()> {
                 )));
             }
 
-            start_timer(
-                parsed_duration,
-                parsed_add,
-                message.clone().unwrap_or("".to_string()),
-                *silent,
-                *notify,
-                *wait,
-                *resume,
-                *lock_screen,
-            )?;
+            start_timer(StartTimerArgs {
+                duration: parsed_duration,
+                add: parsed_add,
+                message: message.clone().unwrap_or("".to_string()),
+                silent: *silent,
+                notify: *notify,
+                wait: *wait,
+                resume: *resume,
+                lock_screen: *lock_screen,
+            })?;
+
             if *wait || *lock_screen {
                 wait_for_timer()?;
             }
@@ -78,49 +79,54 @@ pub fn run(args: &Cli) -> AppResult<()> {
     Ok(())
 }
 
+/// Arguments for starting a timer.
+#[derive(Default)]
+pub struct StartTimerArgs {
+    pub duration: Option<i64>,
+    pub add: Option<i64>,
+    pub message: String,
+    pub silent: bool,
+    pub notify: bool,
+    pub wait: bool,
+    pub resume: bool,
+    pub lock_screen: bool,
+}
+
 /// Start the timer. If the timer is already running, the duration is added to the current duration.
-#[allow(clippy::too_many_arguments)]
-pub fn start_timer(
-    duration: Option<i64>,
-    add: Option<i64>,
-    message: String,
-    silent: bool,
-    notify: bool,
-    wait: bool,
-    resume: bool,
-    lock_screen: bool,
-) -> AppResult<()> {
+pub fn start_timer(args: StartTimerArgs) -> AppResult<()> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
-    if let Some(time) = add
+    if let Some(time) = args.add
         && timer_info.is_running()
     {
         // Add more time to the timer
         timer_info.duration += time
-    } else if timer_info.is_paused() && resume {
+    } else if timer_info.is_paused() && args.resume {
         // Resume a paused timer
         let now = chrono::Utc::now().timestamp();
         let elapsed = timer_info.pause_time - timer_info.start_time;
         timer_info.duration -= elapsed;
         timer_info.start_time = now;
         timer_info.pause_time = now;
-        timer_info.silent = timer_info.silent || silent;
-        timer_info.notify = timer_info.notify || notify;
-        timer_info.wait = timer_info.wait || wait;
-        timer_info.lock_screen = timer_info.lock_screen || lock_screen;
+        timer_info.silent = timer_info.silent || args.silent;
+        timer_info.notify = timer_info.notify || args.notify;
+        timer_info.wait = timer_info.wait || args.wait;
+        timer_info.lock_screen = timer_info.lock_screen || args.lock_screen;
         timer_info.state = TimerState::Running;
     } else {
         // Start a new timer
-        let duration = duration.unwrap_or(add.unwrap_or(DEFAULT_TIMER_DURATION));
+        let duration = args
+            .duration
+            .unwrap_or(args.add.unwrap_or(DEFAULT_TIMER_DURATION));
         let now = chrono::Utc::now().timestamp() + 1;
         timer_info.duration = duration;
         timer_info.start_time = now;
         timer_info.pause_time = now;
-        timer_info.message = message;
-        timer_info.silent = silent;
-        timer_info.notify = notify;
-        timer_info.wait = wait;
+        timer_info.message = args.message;
+        timer_info.silent = args.silent;
+        timer_info.notify = args.notify;
+        timer_info.wait = args.wait;
         timer_info.state = TimerState::Running;
-        timer_info.lock_screen = lock_screen;
+        timer_info.lock_screen = args.lock_screen;
     }
     timer_info.write_to_file()?;
     Ok(())
@@ -130,16 +136,16 @@ pub fn start_timer(
 pub fn pause_timer() -> AppResult<()> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
     if timer_info.is_paused() {
-        start_timer(
-            Some(timer_info.duration),
-            None,
-            timer_info.message,
-            timer_info.silent,
-            timer_info.notify,
-            timer_info.wait,
-            true,
-            timer_info.lock_screen,
-        )?;
+        start_timer(StartTimerArgs {
+            duration: Some(timer_info.duration),
+            message: timer_info.message,
+            silent: timer_info.silent,
+            notify: timer_info.notify,
+            wait: timer_info.wait,
+            resume: true,
+            lock_screen: timer_info.lock_screen,
+            ..Default::default()
+        })?;
     } else if timer_info.is_running() {
         let now = chrono::Utc::now().timestamp();
         timer_info.pause_time = now;
@@ -321,16 +327,10 @@ mod tests {
     fn test_start_timer_new() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(60),
-            None,
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            ..Default::default()
+        })
         .unwrap();
 
         let timer_info = TimerInfo::from_file_or_default().unwrap();
@@ -347,16 +347,11 @@ mod tests {
         let _temp = setup_test_env();
 
         let message = "Working on task".to_string();
-        start_timer(
-            Some(30),
-            None,
-            message.clone(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(30),
+            message: message.clone(),
+            ..Default::default()
+        })
         .unwrap();
 
         let timer_info = TimerInfo::from_file_or_default().unwrap();
@@ -370,29 +365,17 @@ mod tests {
     fn test_start_timer_with_add() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(60),
-            None,
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            ..Default::default()
+        })
         .unwrap();
         thread::sleep(Duration::from_millis(100));
 
-        start_timer(
-            None,
-            Some(30),
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            add: Some(30),
+            ..Default::default()
+        })
         .unwrap();
 
         let timer_info = TimerInfo::from_file_or_default().unwrap();
@@ -406,7 +389,7 @@ mod tests {
     fn test_start_timer_default_duration() {
         let _temp = setup_test_env();
 
-        start_timer(None, None, String::new(), false, false, false, false, false).unwrap();
+        start_timer(StartTimerArgs::default()).unwrap();
 
         let timer_info = TimerInfo::from_file_or_default().unwrap();
         assert_eq!(timer_info.duration, DEFAULT_TIMER_DURATION);
@@ -419,16 +402,10 @@ mod tests {
     fn test_pause_timer() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(60),
-            None,
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            ..Default::default()
+        })
         .unwrap();
         thread::sleep(Duration::from_millis(200));
 
@@ -446,16 +423,10 @@ mod tests {
     fn test_pause_resume_timer() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(60),
-            None,
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            ..Default::default()
+        })
         .unwrap();
         thread::sleep(Duration::from_millis(100));
 
@@ -475,16 +446,10 @@ mod tests {
     fn test_stop_timer() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(60),
-            None,
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            ..Default::default()
+        })
         .unwrap();
         stop_timer().unwrap();
 
@@ -499,16 +464,10 @@ mod tests {
     fn test_get_status_paused() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(60),
-            None,
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            ..Default::default()
+        })
         .unwrap();
         pause_timer().unwrap();
         let status = get_status(Some(StatusFormat::Human), Some(TimeFormat::Digital)).unwrap();
@@ -523,16 +482,13 @@ mod tests {
     fn test_timer_with_flags() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(60),
-            None,
-            String::new(),
-            true,
-            true,
-            true,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            silent: true,
+            notify: true,
+            wait: true,
+            ..Default::default()
+        })
         .unwrap();
 
         let timer_info = TimerInfo::from_file_or_default().unwrap();
@@ -549,16 +505,11 @@ mod tests {
         let _temp = setup_test_env();
 
         let message = "Test message".to_string();
-        start_timer(
-            Some(60),
-            None,
-            message.clone(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            message: message.clone(),
+            ..Default::default()
+        })
         .unwrap();
 
         let status = get_status(Some(StatusFormat::Human), Some(TimeFormat::Digital)).unwrap();
@@ -572,16 +523,11 @@ mod tests {
     fn test_status_json_format() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(100),
-            None,
-            "JSON test".to_string(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(100),
+            message: "JSON test".to_string(),
+            ..Default::default()
+        })
         .unwrap();
 
         let status = get_status(Some(StatusFormat::Json), Some(TimeFormat::Segmented)).unwrap();
@@ -600,16 +546,10 @@ mod tests {
     fn test_status_finished_timer() {
         let _temp = setup_test_env();
 
-        start_timer(
-            Some(10),
-            None,
-            String::new(),
-            false,
-            false,
-            false,
-            false,
-            false,
-        )
+        start_timer(StartTimerArgs {
+            duration: Some(10),
+            ..Default::default()
+        })
         .unwrap();
 
         stop_timer().unwrap();

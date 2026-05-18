@@ -55,6 +55,7 @@ Options for `start`:
 - `--resume` Resume a paused timer (default: disabled)
 - `--notify` Triggers system notification when the timer is finished (default: disabled)
 - `--silent` Suppress alarm sound when the timer finishes (alarm plays by default)
+- `--watch` Stream status continuously for Waybar
 - `--wait` Wait for the timer to finish (default: disabled)
 - `--lock-screen` Wait for the timer to finish, then lock the screen (default: disabled)
 

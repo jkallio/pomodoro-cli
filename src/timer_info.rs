@@ -95,18 +95,22 @@ impl TimerInfo {
     }
 
     pub fn get_percentage(&self) -> f64 {
-        (self.get_time_left() as f64 / self.duration as f64) * 100.0
+        if self.duration == 0 {
+            return 0.0;
+        }
+        ((self.get_time_left() as f64 / self.duration as f64) * 100.0).clamp(0.0, 100.0)
     }
 
     /// Returns the info in human readable format.
     pub fn get_human_readable(&self, time_format: TimeFormat) -> String {
         let mut text = convert_to_time_format(self.get_time_left(), time_format);
-        if !self.message.is_empty() {
-            match self.state {
-                TimerState::Running => text = format!("{} - {}", text, self.message),
-                TimerState::Paused => text = format!("{} - Paused", text),
-                TimerState::Finished => text = format!("{} - Time is up!", text),
+        match self.state {
+            TimerState::Running if !self.message.is_empty() => {
+                text = format!("{} - {}", text, self.message)
             }
+            TimerState::Paused => text = format!("{} - Paused", text),
+            TimerState::Finished => text = format!("{} - Time is up!", text),
+            _ => {}
         }
         text
     }
@@ -116,18 +120,17 @@ impl TimerInfo {
         let text = self.get_human_readable(time_format);
         let tooltip = match self.state {
             TimerState::Running => format!(
-                "Running\nLeft: {}\nElapsed: {} ",
+                "Running\nLeft: {}\nElapsed: {}",
                 convert_to_time_format(self.get_time_left(), time_format),
                 convert_to_time_format(self.get_time_elapsed(), time_format)
             ),
             TimerState::Paused => format!(
-                "Paused\nLeft: {}\nElapsed: {} ",
+                "Paused\nLeft: {}\nElapsed: {}",
                 convert_to_time_format(self.get_time_left(), time_format),
                 convert_to_time_format(self.get_time_elapsed(), time_format)
             ),
             TimerState::Finished => "Finished".to_string(),
-        }
-        .to_string();
+        };
         let class = match self.state {
             TimerState::Running => "running",
             TimerState::Paused => "paused",
@@ -139,18 +142,17 @@ impl TimerInfo {
             class: class.to_string(),
             percentage: self.get_percentage(),
         };
-        return Ok(serde_json::to_string(&waybar_info)?);
+        Ok(serde_json::to_string(&waybar_info)?)
     }
 
     /// Returns the time elapsed since start in seconds.
     pub fn get_time_elapsed(&self) -> i64 {
         match self.state {
-            TimerState::Finished => return self.duration,
-            TimerState::Paused => return self.pause_time - self.start_time,
+            TimerState::Finished => self.duration,
+            TimerState::Paused => self.pause_time - self.start_time,
             TimerState::Running => {
                 let now = chrono::Utc::now().timestamp();
-                let time_elapsed = now - self.start_time;
-                return i64::max(0, time_elapsed);
+                i64::max(0, now - self.start_time)
             }
         }
     }
@@ -200,18 +202,43 @@ mod tests {
     #[test]
     fn test_time_left() {
         let now = chrono::Utc::now().timestamp();
-        let mut timer_info = TimerInfo::default();
-        timer_info.start_time = now - 10;
-        timer_info.duration = 20;
+        let timer_info = TimerInfo {
+            start_time: now - 10,
+            duration: 20,
+            ..Default::default()
+        };
         assert_eq!(timer_info.get_time_left(), 10);
     }
 
     #[test]
     fn test_time_elapsed() {
         let now = chrono::Utc::now().timestamp();
-        let mut timer_info = TimerInfo::default();
-        timer_info.start_time = now - 10;
-        timer_info.duration = 20;
+        let timer_info = TimerInfo {
+            start_time: now - 10,
+            duration: 20,
+            ..Default::default()
+        };
         assert_eq!(timer_info.get_time_elapsed(), 10);
+    }
+
+    #[test]
+    fn test_percentage_clamp() {
+        let now = chrono::Utc::now().timestamp();
+        let timer_info = TimerInfo {
+            state: TimerState::Running,
+            start_time: now - 100,
+            duration: 10,
+            ..Default::default()
+        };
+        assert_eq!(timer_info.get_percentage(), 0.0);
+    }
+
+    #[test]
+    fn test_percentage_zero_duration() {
+        let timer_info = TimerInfo {
+            duration: 0,
+            ..Default::default()
+        };
+        assert_eq!(timer_info.get_percentage(), 0.0);
     }
 }

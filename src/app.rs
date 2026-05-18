@@ -31,6 +31,7 @@ pub fn run(args: &Cli) -> AppResult<()> {
                 message.clone().unwrap_or("".to_string()),
                 *silent,
                 *notify,
+                *wait,
                 *resume,
                 *lock_screen,
             )?;
@@ -56,29 +57,33 @@ pub fn run(args: &Cli) -> AppResult<()> {
 }
 
 /// Start the timer. If the timer is already running, the duration is added to the current duration.
+#[allow(clippy::too_many_arguments)]
 pub fn start_timer(
     duration: Option<i64>,
     add: Option<i64>,
     message: String,
     silent: bool,
     notify: bool,
+    wait: bool,
     resume: bool,
     lock_screen: bool,
 ) -> AppResult<()> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
-    if timer_info.is_running() && add.is_some() {
+    if let Some(time) = add
+        && timer_info.is_running()
+    {
         // Add more time to the timer
-        timer_info.duration += add.unwrap();
+        timer_info.duration += time
     } else if timer_info.is_paused() && resume {
         // Resume a paused timer
         let now = chrono::Utc::now().timestamp();
         let elapsed = timer_info.pause_time - timer_info.start_time;
-        timer_info.duration = timer_info.duration - elapsed;
+        timer_info.duration -= elapsed;
         timer_info.start_time = now;
         timer_info.pause_time = now;
-        timer_info.message = timer_info.message.clone();
         timer_info.silent = timer_info.silent || silent;
         timer_info.notify = timer_info.notify || notify;
+        timer_info.wait = timer_info.wait || wait;
         timer_info.lock_screen = timer_info.lock_screen || lock_screen;
         timer_info.state = TimerState::Running;
     } else {
@@ -91,6 +96,7 @@ pub fn start_timer(
         timer_info.message = message;
         timer_info.silent = silent;
         timer_info.notify = notify;
+        timer_info.wait = wait;
         timer_info.state = TimerState::Running;
         timer_info.lock_screen = lock_screen;
     }
@@ -108,6 +114,7 @@ pub fn pause_timer() -> AppResult<()> {
             timer_info.message,
             timer_info.silent,
             timer_info.notify,
+            timer_info.wait,
             true,
             timer_info.lock_screen,
         )?;
@@ -165,7 +172,7 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
 
     if !timer_info.silent {
         let (_stream, stream_handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&stream_handle).unwrap();
+        let sink = Sink::try_new(&stream_handle).map_err(|e| AppError::new(&e.to_string()))?;
         if let Some(path) = get_custom_alarm_file() {
             let file = std::fs::File::open(path)?;
             let source = Decoder::new(file)?;
@@ -180,12 +187,11 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
         sink.clear();
     }
 
-    // Now check if the lock screen option is enabled
     if timer_info.lock_screen {
         lock_screen()?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 /// Return the status of the timer in the given format.
@@ -194,19 +200,9 @@ pub fn get_status(
     time_format: Option<TimeFormat>,
 ) -> AppResult<String> {
     let timer_info = TimerInfo::from_file_or_default()?;
-    let status: String = match format {
-        Some(StatusFormat::Json) => {
-            format!(
-                "{}",
-                timer_info.get_json_info(time_format.unwrap_or_default())?
-            )
-        }
-        _ => {
-            format!(
-                "{}",
-                timer_info.get_human_readable(time_format.unwrap_or_default())
-            )
-        }
+    let status = match format {
+        Some(StatusFormat::Json) => timer_info.get_json_info(time_format.unwrap_or_default())?,
+        _ => timer_info.get_human_readable(time_format.unwrap_or_default()),
     };
 
     if timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out() {
@@ -218,7 +214,6 @@ pub fn get_status(
 
 /// Wait for the timer to finish.
 pub fn wait_for_timer() -> AppResult<()> {
-    // This thread will wait for the timer to finish and peridoically prints the time left.
     let timer_thrd = thread::spawn(move || -> AppResult<()> {
         let mut stdout = std::io::stdout();
         loop {
@@ -252,11 +247,11 @@ pub fn wait_for_timer() -> AppResult<()> {
                 break;
             }
         }
-        return Ok(());
+        Ok(())
     });
 
-    if let Err(e) = timer_thrd.join() {
-        return Err(AppError::new(&format!("Error: {:?}", e)));
+    match timer_thrd.join() {
+        Ok(result) => result,
+        Err(e) => Err(AppError::new(&format!("Thread panicked: {:?}", e))),
     }
-    return Ok(());
 }

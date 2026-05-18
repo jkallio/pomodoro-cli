@@ -4,18 +4,6 @@ use std::io;
 
 pub type AppResult<T> = Result<T, AppError>;
 
-/// Custom application error type
-#[derive(Debug, Clone)]
-pub struct CustomAppError {
-    pub message: String,
-}
-
-impl std::fmt::Display for CustomAppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.message)
-    }
-}
-
 /// Application error type
 #[derive(Debug)]
 pub enum AppError {
@@ -24,14 +12,12 @@ pub enum AppError {
     Stream(StreamError),
     Serde(serde_json::Error),
     Notify(notify_rust::error::Error),
-    Custom(CustomAppError),
+    Custom(String),
 }
 
 impl AppError {
     pub fn new(message: &str) -> Self {
-        Self::Custom(CustomAppError {
-            message: message.to_string(),
-        })
+        Self::Custom(message.to_string())
     }
 }
 
@@ -65,12 +51,6 @@ impl From<notify_rust::error::Error> for AppError {
     }
 }
 
-impl From<CustomAppError> for AppError {
-    fn from(error: CustomAppError) -> Self {
-        Self::Custom(error)
-    }
-}
-
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
@@ -79,7 +59,7 @@ impl std::fmt::Display for AppError {
             Self::Stream(error) => write!(f, "Stream Error: {}", error),
             Self::Serde(error) => write!(f, "Serde Error: {}", error),
             Self::Notify(error) => write!(f, "Notify Error: {}", error),
-            Self::Custom(error) => write!(f, "Error: {}", error),
+            Self::Custom(message) => write!(f, "Error: {}", message),
         }
     }
 }

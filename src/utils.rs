@@ -44,8 +44,8 @@ pub fn parse_duration(duration: Option<String>) -> Option<i64> {
             return Some(duration * 60);
         }
 
-        if duration.contains(":") {
-            let mut parts = duration.split(":");
+        if duration.contains(':') {
+            let mut parts = duration.split(':');
             let mut hours: i64 = 0;
             if parts.clone().count() > 2 {
                 hours = parts.next().unwrap_or_default().parse().unwrap_or_default();
@@ -66,21 +66,18 @@ pub fn parse_duration(duration: Option<String>) -> Option<i64> {
         let mut hours = 0;
         let mut minutes = 0;
         let mut seconds = 0;
-        if duration.contains("h") {
-            duration.split("h");
-            let parts = duration.split("h").collect::<Vec<&str>>();
+        if duration.contains('h') {
+            let parts = duration.split('h').collect::<Vec<&str>>();
             hours = parts[0].parse().unwrap_or_default();
             duration = parts[1].to_string();
         }
-        if duration.contains("m") {
-            duration.split("m");
-            let parts = duration.split("m").collect::<Vec<&str>>();
+        if duration.contains('m') {
+            let parts = duration.split('m').collect::<Vec<&str>>();
             minutes = parts[0].parse().unwrap_or_default();
             duration = parts[1].to_string();
         }
-        if duration.contains("s") {
-            duration.split("s");
-            let parts = duration.split("s").collect::<Vec<&str>>();
+        if duration.contains('s') {
+            let parts = duration.split('s').collect::<Vec<&str>>();
             seconds = parts[0].parse().unwrap_or_default();
         }
         return Some(hours * 60 * 60 + minutes * 60 + seconds);
@@ -95,7 +92,7 @@ fn get_time_segments(seconds: i64) -> (i64, i64, i64) {
     seconds -= hours * 3600;
     let minutes = (seconds % 3600) / 60;
     seconds -= minutes * 60;
-    return (hours, minutes, seconds);
+    (hours, minutes, seconds)
 }
 
 /// Return the seconds in segmented time format (e.g. 1h 30m 10s)
@@ -107,30 +104,30 @@ fn convert_to_segmented_format(seconds: i64) -> String {
     }
     if minutes > 0 {
         if !time.is_empty() {
-            time.push_str(" ");
+            time.push(' ');
         }
         time.push_str(&format!("{}m", minutes));
     }
     if seconds > 0 {
         if !time.is_empty() {
-            time.push_str(" ");
+            time.push(' ');
         }
         time.push_str(&format!("{}s", seconds));
     }
     if time.is_empty() {
         time.push_str("0s");
     }
-    return time;
+    time
 }
 
 /// Return the seconds in digit format (e.g. 01:30:10)
 fn convert_to_digital_format(seconds: i64) -> String {
     let (hours, minutes, seconds) = get_time_segments(seconds);
-    return if hours > 0 {
+    if hours > 0 {
         format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
     } else {
         format!("{:02}:{:02}", minutes, seconds)
-    };
+    }
 }
 
 pub fn convert_to_time_format(seconds: i64, time_format: TimeFormat) -> String {

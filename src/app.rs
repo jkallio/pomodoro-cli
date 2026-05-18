@@ -8,7 +8,7 @@ use crossterm::execute;
 use crossterm::terminal::{Clear, ClearType};
 use lock::FailureReason;
 use notify_rust::{Notification, Timeout};
-use rodio::{Decoder, OutputStream, Sink};
+use rodio::{Decoder, Player, stream::DeviceSinkBuilder};
 use std::thread;
 use std::time::Duration;
 
@@ -193,20 +193,20 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
     }
 
     if !timer_info.silent {
-        let (_stream, stream_handle) = OutputStream::try_default()?;
-        let sink = Sink::try_new(&stream_handle).map_err(|e| AppError::new(&e.to_string()))?;
+        let handle = DeviceSinkBuilder::open_default_sink()?;
+        let player = Player::connect_new(handle.mixer());
         if let Some(path) = get_custom_alarm_file() {
             let file = std::fs::File::open(path)?;
             let source = Decoder::new(file)?;
-            sink.append(source);
+            player.append(source);
         } else {
             let mp3 = include_bytes!("../assets/ding.mp3");
             let source = Decoder::new(std::io::Cursor::new(mp3))?;
-            sink.append(source);
+            player.append(source);
         }
-        sink.set_volume(1.0);
-        sink.sleep_until_end();
-        sink.clear();
+        player.set_volume(1.0);
+        player.sleep_until_end();
+        player.clear();
     }
 
     if timer_info.lock_screen {

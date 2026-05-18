@@ -1,5 +1,5 @@
 use rodio::decoder::DecoderError;
-use rodio::StreamError;
+use rodio::stream::DeviceSinkError;
 use std::io;
 
 pub type AppResult<T> = Result<T, AppError>;
@@ -9,7 +9,7 @@ pub type AppResult<T> = Result<T, AppError>;
 pub enum AppError {
     Io(io::Error),
     Decoder(DecoderError),
-    Stream(StreamError),
+    DeviceSink(DeviceSinkError),
     Serde(serde_json::Error),
     Notify(notify_rust::error::Error),
     Custom(String),
@@ -33,9 +33,9 @@ impl From<DecoderError> for AppError {
     }
 }
 
-impl From<StreamError> for AppError {
-    fn from(error: StreamError) -> Self {
-        Self::Stream(error)
+impl From<DeviceSinkError> for AppError {
+    fn from(error: DeviceSinkError) -> Self {
+        Self::DeviceSink(error)
     }
 }
 
@@ -56,7 +56,7 @@ impl std::fmt::Display for AppError {
         match self {
             Self::Io(error) => write!(f, "IO Error: {}", error),
             Self::Decoder(error) => write!(f, "Decoder Error: {}", error),
-            Self::Stream(error) => write!(f, "Stream Error: {}", error),
+            Self::DeviceSink(error) => write!(f, "Device Sink Error: {}", error),
             Self::Serde(error) => write!(f, "Serde Error: {}", error),
             Self::Notify(error) => write!(f, "Notify Error: {}", error),
             Self::Custom(message) => write!(f, "Error: {}", message),

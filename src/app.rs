@@ -193,7 +193,8 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
     }
 
     if !timer_info.silent {
-        let handle = DeviceSinkBuilder::open_default_sink()?;
+        let mut handle = DeviceSinkBuilder::open_default_sink()?;
+        handle.log_on_drop(false);
         let player = Player::connect_new(handle.mixer());
         if let Some(path) = get_custom_alarm_file() {
             let file = std::fs::File::open(path)?;
@@ -249,46 +250,52 @@ pub fn watch_status(
     }
 }
 
-/// Wait for the timer to finish.
+/// Wait for the timer to finish, displaying a progress bar.
+///
+/// This function blocks until the timer completes or is stopped.
+/// It displays a progress bar that updates every second.
+///
+/// # Errors
+/// Returns an error if:
+/// - Unable to read timer state file
+/// - Terminal control operations fail
+/// - Timer alarm fails to trigger
 pub fn wait_for_timer() -> AppResult<()> {
-    let timer_thrd = thread::spawn(move || -> AppResult<()> {
-        let mut stdout = std::io::stdout();
-        loop {
-            let timer_info = TimerInfo::from_file_or_default()?;
-            let percentage = (timer_info.get_percentage() / 4.0) as i64;
-            print!("|");
-            for _ in 0..percentage {
-                print!("#");
-            }
-            for _ in 0..(25 - percentage) {
-                print!("-");
-            }
-            println!("| {}", timer_info.get_human_readable(TimeFormat::default()));
+    let mut stdout = std::io::stdout();
 
-            thread::sleep(std::time::Duration::from_secs(1));
-            execute!(
-                stdout,
-                MoveToPreviousLine(1),
-                Clear(ClearType::CurrentLine),
-                MoveToColumn(0),
-            )?;
+    loop {
+        let timer_info = TimerInfo::from_file_or_default()?;
 
-            if !timer_info.is_running() {
-                stop_timer()?;
-                break;
-            }
-
-            if timer_info.is_time_run_out() {
-                stop_timer()?;
-                trigger_alarm(&timer_info)?;
-                break;
-            }
+        let percentage = (timer_info.get_percentage() / 4.0).clamp(0.0, 25.0) as i64;
+        print!("|");
+        for _ in 0..percentage {
+            print!("#");
         }
-        Ok(())
-    });
+        for _ in 0..(25 - percentage) {
+            print!("-");
+        }
+        println!("| {}", timer_info.get_human_readable(TimeFormat::default()));
 
-    match timer_thrd.join() {
-        Ok(result) => result,
-        Err(e) => Err(AppError::new(&format!("Thread panicked: {:?}", e))),
+        thread::sleep(Duration::from_secs(1));
+
+        execute!(
+            stdout,
+            MoveToPreviousLine(1),
+            Clear(ClearType::CurrentLine),
+            MoveToColumn(0),
+        )?;
+
+        if !timer_info.is_running() {
+            stop_timer()?;
+            break;
+        }
+
+        if timer_info.is_time_run_out() {
+            stop_timer()?;
+            trigger_alarm(&timer_info)?;
+            break;
+        }
     }
+
+    Ok(())
 }

@@ -25,6 +25,12 @@ rodio = "0.22"
 crossterm = "0.29"
 lock = "0.1.0"
 
+[dev-dependencies]
+tempfile = "3.8"
+assert_cmd = "2.0"
+predicates = "3.0"
+serial_test = "3.0"
+
 [profile.release]
 strip = true        # Automatically strip symbols from the binary.
 opt-level = "z"     # Optimize for binary size.

@@ -1,16 +1,29 @@
 use crate::args::TimeFormat;
 use std::path::PathBuf;
 
-/// Return the path to the timer information file. This is the cache directory on Linux and
-/// LocalAppData on Windows. In case the cache directory is not available, the current
-/// directory is used.
+/// Return the path to the timer information file. This is the ~/.cache directory on Linux.
+/// In case the cache directory is not available, the current directory is used.
+/// For testing purposes, the path can be overridden by setting the POMODORO_CLI_TEST_DIR
+/// environment variable.
 pub fn get_timer_info_file() -> PathBuf {
-    let mut path = dirs::cache_dir().unwrap_or_else(|| PathBuf::from("."));
+    let mut path = if let Ok(test_dir) = std::env::var("POMODORO_CLI_TEST_DIR") {
+        PathBuf::from(test_dir)
+    } else if let Ok(home) = std::env::var("HOME") {
+        let mut p = PathBuf::from(home);
+        p.push(".cache");
+        if p.exists() || std::fs::create_dir_all(&p).is_ok() {
+            p
+        } else {
+            dirs::cache_dir().unwrap_or_else(|| PathBuf::from("."))
+        }
+    } else {
+        dirs::cache_dir().unwrap_or_else(|| PathBuf::from("."))
+    };
     path.push("pomodoro-cli-info.json");
     path
 }
 
-/// Return the path to the custom audio file for the alarm. This is the config directory on Linux and RoamingAppData on Windows.
+/// Return the path to the custom audio file for the alarm. This is the ~/.config directory on Linux.
 /// In case the audio file is not found, `None` is returned.
 pub fn get_custom_alarm_file() -> Option<PathBuf> {
     if let Some(mut path) = dirs::config_dir() {
@@ -23,9 +36,8 @@ pub fn get_custom_alarm_file() -> Option<PathBuf> {
     None
 }
 
-/// Return the path to the custom icon file for the notification. This is the config directory on Linux and RoamingAppData on Windows.
-/// In case the icon file is not found, `None` is returned.
-/// The icon file must be a PNG file.
+/// Return the path to the custom icon file for the notification. This is the ~/.config directory on Linux.
+/// In case the icon file is not found, `None` is returned. The icon file must be a PNG file.
 pub fn get_custom_icon_file() -> Option<PathBuf> {
     if let Some(mut path) = dirs::config_dir() {
         path.push("pomodoro-cli");

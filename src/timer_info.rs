@@ -43,7 +43,7 @@ impl Default for TimerInfo {
     fn default() -> Self {
         let start_time = chrono::Utc::now().timestamp();
         Self {
-            state: TimerState::Paused,
+            state: TimerState::Finished,
             start_time,
             pause_time: start_time,
             duration: DEFAULT_TIMER_DURATION,
@@ -65,10 +65,7 @@ impl TimerInfo {
             return Ok(Self::default());
         }
 
-        let mut contents = String::new();
-        let mut file = std::fs::File::open(path)?;
-
-        file.read_to_string(&mut contents)?;
+        let contents = std::fs::read_to_string(&path)?;
         if let Ok(timer_info) = serde_json::from_str(&contents) {
             return Ok(timer_info);
         }
@@ -85,6 +82,7 @@ impl TimerInfo {
         self.state == TimerState::Paused
     }
 
+    /// Return true if the timer has no time left
     pub fn is_time_run_out(&self) -> bool {
         self.get_time_left() < 0
     }
@@ -94,6 +92,7 @@ impl TimerInfo {
         self.duration - self.get_time_elapsed()
     }
 
+    /// Returns the remaining time as percentage
     pub fn get_percentage(&self) -> f64 {
         if self.duration == 0 {
             return 0.0;
@@ -163,6 +162,7 @@ impl TimerInfo {
         let mut file = File::create(path)?;
         let json = serde_json::to_string_pretty(&self)?;
         file.write_all(json.as_bytes())?;
+        file.sync_all()?;
         Ok(())
     }
 
@@ -190,12 +190,12 @@ mod tests {
 
     #[test]
     fn test_file_io() -> AppResult<()> {
-        TimerInfo::remove_info_file()?;
+        _ = TimerInfo::remove_info_file();
         assert!(!TimerInfo::info_file_exists());
         let timer_info = TimerInfo::default();
         timer_info.write_to_file()?;
         assert!(TimerInfo::info_file_exists());
-        TimerInfo::remove_info_file()?;
+        _ = TimerInfo::remove_info_file();
         Ok(())
     }
 
@@ -203,6 +203,7 @@ mod tests {
     fn test_time_left() {
         let now = chrono::Utc::now().timestamp();
         let timer_info = TimerInfo {
+            state: TimerState::Running,
             start_time: now - 10,
             duration: 20,
             ..Default::default()
@@ -214,6 +215,7 @@ mod tests {
     fn test_time_elapsed() {
         let now = chrono::Utc::now().timestamp();
         let timer_info = TimerInfo {
+            state: TimerState::Running,
             start_time: now - 10,
             duration: 20,
             ..Default::default()

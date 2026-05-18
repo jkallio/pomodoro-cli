@@ -299,3 +299,349 @@ pub fn wait_for_timer() -> AppResult<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    use tempfile::TempDir;
+
+    fn setup_test_env() -> TempDir {
+        let dir = TempDir::new().unwrap();
+        unsafe {
+            std::env::set_var("POMODORO_CLI_TEST_DIR", dir.path());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+        let _ = TimerInfo::remove_info_file();
+        dir
+    }
+
+    #[test]
+    #[serial]
+    fn test_start_timer_new() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(60),
+            None,
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Running);
+        assert_eq!(timer_info.duration, 60);
+        assert_eq!(timer_info.message, "");
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_start_timer_with_message() {
+        let _temp = setup_test_env();
+
+        let message = "Working on task".to_string();
+        start_timer(
+            Some(30),
+            None,
+            message.clone(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.message, message);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_start_timer_with_add() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(60),
+            None,
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+        thread::sleep(Duration::from_millis(100));
+
+        start_timer(
+            None,
+            Some(30),
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.duration, 90);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_start_timer_default_duration() {
+        let _temp = setup_test_env();
+
+        start_timer(None, None, String::new(), false, false, false, false, false).unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.duration, DEFAULT_TIMER_DURATION);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pause_timer() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(60),
+            None,
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+        thread::sleep(Duration::from_millis(200));
+
+        pause_timer().unwrap();
+        thread::sleep(Duration::from_millis(50));
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Paused);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pause_resume_timer() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(60),
+            None,
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+        thread::sleep(Duration::from_millis(100));
+
+        pause_timer().unwrap();
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Paused);
+
+        pause_timer().unwrap();
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Running);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_stop_timer() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(60),
+            None,
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+        stop_timer().unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Finished);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_get_status_paused() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(60),
+            None,
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+        pause_timer().unwrap();
+        let status = get_status(Some(StatusFormat::Human), Some(TimeFormat::Digital)).unwrap();
+
+        assert!(status.contains("Paused"));
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_timer_with_flags() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(60),
+            None,
+            String::new(),
+            true,
+            true,
+            true,
+            false,
+            false,
+        )
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert!(timer_info.silent);
+        assert!(timer_info.notify);
+        assert!(timer_info.wait);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_status_with_message() {
+        let _temp = setup_test_env();
+
+        let message = "Test message".to_string();
+        start_timer(
+            Some(60),
+            None,
+            message.clone(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+
+        let status = get_status(Some(StatusFormat::Human), Some(TimeFormat::Digital)).unwrap();
+        assert!(status.contains("Test message"));
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_status_json_format() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(100),
+            None,
+            "JSON test".to_string(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+
+        let status = get_status(Some(StatusFormat::Json), Some(TimeFormat::Segmented)).unwrap();
+
+        let json: serde_json::Value = serde_json::from_str(&status).unwrap();
+        assert!(json.is_object());
+        assert!(json.get("class").is_some());
+        assert!(json.get("text").is_some());
+        assert!(json.get("percentage").is_some());
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_status_finished_timer() {
+        let _temp = setup_test_env();
+
+        start_timer(
+            Some(10),
+            None,
+            String::new(),
+            false,
+            false,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
+
+        stop_timer().unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Finished);
+
+        let status = get_status(Some(StatusFormat::Human), Some(TimeFormat::Digital)).unwrap();
+        assert!(status.contains("Time is up!"));
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_pause_when_not_running() {
+        let _temp = setup_test_env();
+
+        TimerInfo::remove_info_file().ok();
+
+        let result = pause_timer();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_stop_when_not_running() {
+        let _temp = setup_test_env();
+
+        TimerInfo::remove_info_file().ok();
+
+        let result = stop_timer();
+        assert!(result.is_ok());
+    }
+}

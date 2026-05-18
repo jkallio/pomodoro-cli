@@ -45,42 +45,41 @@ pub fn parse_duration(duration: Option<String>) -> Option<i64> {
         }
 
         if duration.contains(':') {
-            let mut parts = duration.split(':');
-            let mut hours: i64 = 0;
-            if parts.clone().count() > 2 {
-                hours = parts.next().unwrap_or_default().parse().unwrap_or_default();
+            let parts: Vec<&str> = duration.split(':').collect();
+            let (h, m, s): (i64, i64, i64) = match parts.as_slice() {
+                [m, s] => (0, m.parse().ok()?, s.parse().ok()?),
+                [h, m, s] => (h.parse().ok()?, m.parse().ok()?, s.parse().ok()?),
+                _ => return None,
+            };
+            return Some(h * 3600 + m * 60 + s);
+        }
+
+        let duration: String = duration
+            .to_lowercase()
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect::<String>()
+            .replace("hour", "h")
+            .replace("minute", "m")
+            .replace("min", "m")
+            .replace("second", "s")
+            .replace("sec", "s");
+
+        let mut total = 0i64;
+        let mut rest = duration.as_str();
+        let mut parsed_any = false;
+
+        for (suffix, mult) in [('h', 3600), ('m', 60), ('s', 1)] {
+            if let Some((num, after)) = rest.split_once(suffix) {
+                if let Ok(n) = num.parse::<i64>() {
+                    total += n * mult;
+                    parsed_any = true;
+                }
+                rest = after;
             }
-            let minutes: i64 = parts.next().unwrap_or_default().parse().unwrap_or_default();
-            let seconds: i64 = parts.next().unwrap_or_default().parse().unwrap_or_default();
-            return Some(hours * 3600 + minutes * 60 + seconds);
         }
 
-        let mut duration = duration.to_lowercase();
-        duration.retain(|c| !c.is_whitespace());
-        duration = duration.replace("hour", "h");
-        duration = duration.replace("minute", "m");
-        duration = duration.replace("min", "m");
-        duration = duration.replace("second", "s");
-        duration = duration.replace("sec", "s");
-
-        let mut hours = 0;
-        let mut minutes = 0;
-        let mut seconds = 0;
-        if duration.contains('h') {
-            let parts = duration.split('h').collect::<Vec<&str>>();
-            hours = parts[0].parse().unwrap_or_default();
-            duration = parts[1].to_string();
-        }
-        if duration.contains('m') {
-            let parts = duration.split('m').collect::<Vec<&str>>();
-            minutes = parts[0].parse().unwrap_or_default();
-            duration = parts[1].to_string();
-        }
-        if duration.contains('s') {
-            let parts = duration.split('s').collect::<Vec<&str>>();
-            seconds = parts[0].parse().unwrap_or_default();
-        }
-        return Some(hours * 60 * 60 + minutes * 60 + seconds);
+        return parsed_any.then_some(total);
     }
     None
 }
@@ -156,7 +155,7 @@ mod tests {
         assert_eq!(parse_duration(Some("30m".to_string())), Some(1800));
         assert_eq!(parse_duration(Some("10s".to_string())), Some(10));
         assert_eq!(parse_duration(Some("100".to_string())), Some(100 * 60));
-        assert_eq!(parse_duration(Some("Invalid string".to_string())), Some(0));
+        assert_eq!(parse_duration(Some("Invalid string".to_string())), None);
     }
 
     #[test]
@@ -173,5 +172,33 @@ mod tests {
         assert_eq!(convert_to_digital_format(60), "01:00");
         assert_eq!(convert_to_digital_format(10), "00:10");
         assert_eq!(convert_to_digital_format(0), "00:00");
+    }
+
+    #[test]
+    fn test_parse_duration_invalid() {
+        assert_eq!(parse_duration(Some("hello".to_string())), None);
+        assert_eq!(parse_duration(Some("@#$%".to_string())), None);
+        assert_eq!(parse_duration(Some("".to_string())), None);
+        assert_eq!(parse_duration(Some(":".to_string())), None);
+        assert_eq!(parse_duration(Some("h".to_string())), None);
+        assert_eq!(parse_duration(Some("m".to_string())), None);
+        assert_eq!(parse_duration(Some("hms".to_string())), None);
+    }
+
+    #[test]
+    fn test_parse_duration_zero_is_valid() {
+        assert_eq!(parse_duration(Some("0".to_string())), Some(0));
+        assert_eq!(parse_duration(Some("0m".to_string())), Some(0));
+        assert_eq!(parse_duration(Some("0s".to_string())), Some(0));
+        assert_eq!(parse_duration(Some("0h".to_string())), Some(0));
+        assert_eq!(parse_duration(Some("0:0".to_string())), Some(0));
+        assert_eq!(parse_duration(Some("00:00".to_string())), Some(0));
+    }
+
+    #[test]
+    fn test_parse_duration_edge_cases() {
+        assert_eq!(parse_duration(Some("1:30".to_string())), Some(90));
+        assert_eq!(parse_duration(Some("01:30".to_string())), Some(90));
+        assert_eq!(parse_duration(Some("1:30:45".to_string())), Some(5445));
     }
 }

@@ -25,9 +25,26 @@ pub fn run(args: &Cli) -> AppResult<()> {
             resume,
             lock_screen,
         } => {
+            let parsed_duration = parse_duration(duration.clone());
+            let parsed_add = parse_duration(add.clone());
+
+            if duration.is_some() && parsed_duration.is_none() {
+                return Err(AppError::new(&format!(
+                    "Invalid duration format: '{}'. Use formats like '25m', '1h 30m 10s', or '10:30'",
+                    duration.as_ref().unwrap()
+                )));
+            }
+
+            if add.is_some() && parsed_add.is_none() {
+                return Err(AppError::new(&format!(
+                    "Invalid time format: '{}'. Use formats like '5m', '1h 30m', or '10:30'",
+                    add.as_ref().unwrap()
+                )));
+            }
+
             start_timer(
-                parse_duration(duration.clone()),
-                parse_duration(add.clone()),
+                parsed_duration,
+                parsed_add,
                 message.clone().unwrap_or("".to_string()),
                 *silent,
                 *notify,

@@ -116,7 +116,14 @@ impl TimerInfo {
 
     /// Returns the info in Waybar JSON format.
     pub fn get_json_info(&self, time_format: TimeFormat) -> AppResult<String> {
-        let text = self.get_human_readable(time_format);
+        let mut text = convert_to_time_format(self.get_time_left(), time_format);
+        match self.state {
+            TimerState::Running if !self.message.is_empty() => {
+                text = format!("{} - {}", text, self.message)
+            }
+            TimerState::Paused => text = format!("{} - Paused", text),
+            _ => {}
+        }
         let tooltip = match self.state {
             TimerState::Running => format!(
                 "Running\nLeft: {}\nElapsed: {}",

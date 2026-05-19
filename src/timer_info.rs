@@ -84,7 +84,7 @@ impl TimerInfo {
 
     /// Return true if the timer has no time left
     pub fn is_time_run_out(&self) -> bool {
-        self.get_time_left() < 0
+        self.get_time_left() <= 0
     }
 
     /// Returns the time left in the timer in seconds.

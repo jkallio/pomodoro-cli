@@ -228,14 +228,20 @@ pub fn get_status(
     format: Option<StatusFormat>,
     time_format: Option<TimeFormat>,
 ) -> AppResult<String> {
-    let timer_info = TimerInfo::from_file_or_default()?;
+    let mut timer_info = TimerInfo::from_file_or_default()?;
+
+    let timed_out = timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out();
+    if timed_out {
+        stop_timer()?;
+        timer_info.state = TimerState::Finished;
+    }
+
     let status = match format {
         Some(StatusFormat::Json) => timer_info.get_json_info(time_format.unwrap_or_default())?,
         _ => timer_info.get_human_readable(time_format.unwrap_or_default()),
     };
 
-    if timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out() {
-        stop_timer()?;
+    if timed_out {
         trigger_alarm(&timer_info)?;
     }
     Ok(status)

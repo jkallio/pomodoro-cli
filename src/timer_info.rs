@@ -27,15 +27,13 @@ pub struct TimerInfo {
     pub silent: bool,
     pub notify: bool,
     pub wait: bool,
-    pub repeat: bool,
     pub lock_screen: bool,
-    /// 0-based index of the current cycle phase; absent when no cycle is active
+    #[serde(default)]
+    pub repeat: bool,
     #[serde(default)]
     pub cycle_phase_index: Option<usize>,
-    /// Total number of phases in the active cycle
     #[serde(default)]
     pub cycle_total: Option<usize>,
-    /// Human-readable name of the current cycle phase
     #[serde(default)]
     pub cycle_phase_name: String,
 }

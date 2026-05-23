@@ -61,12 +61,17 @@ impl CycleDefinition {
         Ok(())
     }
 
-    pub fn phase(&self, index: usize) -> &CyclePhase {
-        &self.phases[index]
+    pub fn phase(&self, index: usize) -> Option<&CyclePhase> {
+        self.phases.get(index)
     }
 
     pub fn len(&self) -> usize {
         self.phases.len()
+    }
+
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.phases.is_empty()
     }
 
     pub fn parse_phases(args: &[String]) -> AppResult<Self> {
@@ -115,18 +120,18 @@ mod tests {
         let args = vec!["Work:25".to_string(), "Break:5".to_string()];
         let cycle = CycleDefinition::parse_phases(&args).unwrap();
         assert_eq!(cycle.len(), 2);
-        assert_eq!(cycle.phase(0).name, "Work");
-        assert_eq!(cycle.phase(0).minutes, 25);
-        assert_eq!(cycle.phase(1).name, "Break");
-        assert_eq!(cycle.phase(1).minutes, 5);
+        assert_eq!(cycle.phase(0).unwrap().name, "Work");
+        assert_eq!(cycle.phase(0).unwrap().minutes, 25);
+        assert_eq!(cycle.phase(1).unwrap().name, "Break");
+        assert_eq!(cycle.phase(1).unwrap().minutes, 5);
     }
 
     #[test]
     fn test_parse_phases_name_with_spaces() {
         let args = vec!["Short Break:5".to_string()];
         let cycle = CycleDefinition::parse_phases(&args).unwrap();
-        assert_eq!(cycle.phase(0).name, "Short Break");
-        assert_eq!(cycle.phase(0).minutes, 5);
+        assert_eq!(cycle.phase(0).unwrap().name, "Short Break");
+        assert_eq!(cycle.phase(0).unwrap().minutes, 5);
     }
 
     #[test]
@@ -162,7 +167,7 @@ mod tests {
 
         let loaded = CycleDefinition::load_or_default();
         assert_eq!(loaded.len(), 2);
-        assert_eq!(loaded.phase(0).name, "Work");
-        assert_eq!(loaded.phase(1).minutes, 5);
+        assert_eq!(loaded.phase(0).unwrap().name, "Work");
+        assert_eq!(loaded.phase(1).unwrap().minutes, 5);
     }
 }

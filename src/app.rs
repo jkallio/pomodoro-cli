@@ -108,47 +108,21 @@ pub fn start_timer(args: StartTimerArgs) -> AppResult<()> {
     if let Some(time) = args.add
         && timer_info.is_running()
     {
-        // Add more time to the running timer
         timer_info.duration += time;
     } else if timer_info.is_paused() && args.resume {
-        // Resume a paused timer
-        let now = chrono::Utc::now().timestamp();
-        let elapsed = timer_info.pause_time - timer_info.start_time;
-        timer_info.duration -= elapsed;
-        timer_info.start_time = now;
-        timer_info.pause_time = now;
-        timer_info.silent = timer_info.silent || args.silent;
-        timer_info.notify = timer_info.notify || args.notify;
-        timer_info.wait = timer_info.wait || args.wait;
-        timer_info.lock_screen = timer_info.lock_screen || args.lock_screen;
-        timer_info.state = TimerState::Running;
+        resume_paused_timer(&mut timer_info, &args);
     } else if args.cycle {
-        // Start the first phase of the cycle
-        let cycle = CycleDefinition::load_or_default();
-        let first = cycle.phase(0);
-        let now = chrono::Utc::now().timestamp() + 1;
-        timer_info.duration = first.minutes as i64 * 60;
-        timer_info.start_time = now;
-        timer_info.pause_time = now;
-        timer_info.message = args.message;
-        timer_info.silent = args.silent;
-        timer_info.notify = args.notify;
-        timer_info.wait = args.wait;
-        timer_info.lock_screen = args.lock_screen;
-        timer_info.state = TimerState::Running;
-        timer_info.cycle_phase_index = Some(0);
-        timer_info.cycle_total = Some(cycle.len());
-        timer_info.cycle_phase_name = first.name.clone();
-        timer_info.repeat = args.repeat;
+        start_cycle_timer(&mut timer_info, &args)?;
     } else {
-        // Start a new single timer; when --repeat is given without an explicit duration,
-        // reuse the previous timer's duration so the session can continue seamlessly.
+        // When --repeat is given without an explicit duration, reuse the previous timer's
+        // duration so the session can continue seamlessly.
         let duration = if args.repeat && args.duration.is_none() && args.add.is_none() {
             timer_info.duration
         } else {
             args.duration
                 .unwrap_or(args.add.unwrap_or(DEFAULT_TIMER_DURATION))
         };
+        // +1 prevents the freshly-started timer from expiring on the very first poll
         let now = chrono::Utc::now().timestamp() + 1;
         timer_info.duration = duration;
         timer_info.start_time = now;
@@ -165,6 +139,40 @@ pub fn start_timer(args: StartTimerArgs) -> AppResult<()> {
         timer_info.repeat = args.repeat;
     }
     timer_info.write_to_file()?;
+    Ok(())
+}
+
+fn resume_paused_timer(timer_info: &mut TimerInfo, args: &StartTimerArgs) {
+    let now = chrono::Utc::now().timestamp();
+    let elapsed = timer_info.pause_time - timer_info.start_time;
+    timer_info.duration -= elapsed;
+    timer_info.start_time = now;
+    timer_info.pause_time = now;
+    timer_info.silent = timer_info.silent || args.silent;
+    timer_info.notify = timer_info.notify || args.notify;
+    timer_info.wait = timer_info.wait || args.wait;
+    timer_info.lock_screen = timer_info.lock_screen || args.lock_screen;
+    timer_info.state = TimerState::Running;
+}
+
+fn start_cycle_timer(timer_info: &mut TimerInfo, args: &StartTimerArgs) -> AppResult<()> {
+    let cycle = CycleDefinition::load_or_default();
+    let first = cycle.phase(0).ok_or_else(|| AppError::new("Cycle has no phases"))?;
+    // +1 prevents the freshly-started timer from expiring on the very first poll
+    let now = chrono::Utc::now().timestamp() + 1;
+    timer_info.duration = first.minutes as i64 * 60;
+    timer_info.start_time = now;
+    timer_info.pause_time = now;
+    timer_info.message = args.message.clone();
+    timer_info.silent = args.silent;
+    timer_info.notify = args.notify;
+    timer_info.wait = args.wait;
+    timer_info.lock_screen = args.lock_screen;
+    timer_info.state = TimerState::Running;
+    timer_info.cycle_phase_index = Some(0);
+    timer_info.cycle_total = Some(cycle.len());
+    timer_info.cycle_phase_name = first.name.clone();
+    timer_info.repeat = args.repeat;
     Ok(())
 }
 
@@ -202,7 +210,10 @@ fn advance_cycle_phase(timer_info: &mut TimerInfo) -> AppResult<bool> {
         return Ok(false);
     };
 
-    let phase = cycle.phase(phase_index);
+    let phase = cycle
+        .phase(phase_index)
+        .ok_or_else(|| AppError::new("Cycle phase index out of range"))?;
+    // +1 prevents the freshly-advanced phase from expiring on the very first poll
     let now = chrono::Utc::now().timestamp() + 1;
     timer_info.duration = phase.minutes as i64 * 60;
     timer_info.start_time = now;
@@ -305,6 +316,35 @@ pub fn trigger_alarm(timer_info: &TimerInfo) -> AppResult<()> {
     Ok(())
 }
 
+/// Handle a timer timeout: trigger the alarm, then advance the cycle, restart (repeat), or stop.
+/// Returns true if the timer is still active after handling (cycle advanced or repeated).
+fn handle_timeout(timer_info: &mut TimerInfo) -> AppResult<bool> {
+    trigger_alarm(timer_info)?;
+
+    if timer_info.cycle_phase_index.is_some() {
+        if advance_cycle_phase(timer_info)? {
+            return Ok(true);
+        }
+        stop_timer()?;
+        timer_info.state = TimerState::Finished;
+        return Ok(false);
+    }
+
+    if timer_info.repeat {
+        // +1 prevents the restarted timer from expiring on the very first poll
+        let now = chrono::Utc::now().timestamp() + 1;
+        timer_info.start_time = now;
+        timer_info.pause_time = now;
+        timer_info.state = TimerState::Running;
+        timer_info.write_to_file()?;
+        return Ok(true);
+    }
+
+    stop_timer()?;
+    timer_info.state = TimerState::Finished;
+    Ok(false)
+}
+
 /// Return the status of the timer in the given format.
 pub fn get_status(
     format: Option<StatusFormat>,
@@ -312,38 +352,14 @@ pub fn get_status(
 ) -> AppResult<String> {
     let mut timer_info = TimerInfo::from_file_or_default()?;
 
-    let timed_out = timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out();
-    let is_cycle = timer_info.cycle_phase_index.is_some();
-
-    if timed_out && is_cycle {
-        // Trigger alarm for the completed phase, then advance to the next one
-        trigger_alarm(&timer_info)?;
-        if !advance_cycle_phase(&mut timer_info)? {
-            stop_timer()?;
-            timer_info.state = TimerState::Finished;
-        }
-    } else if timed_out {
-        if !timer_info.repeat {
-            stop_timer()?;
-        }
-        timer_info.state = TimerState::Finished;
+    if timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out() {
+        handle_timeout(&mut timer_info)?;
     }
 
     let status = match format {
         Some(StatusFormat::Json) => timer_info.get_json_info(time_format.unwrap_or_default())?,
         _ => timer_info.get_human_readable(time_format.unwrap_or_default()),
     };
-
-    if timed_out && !is_cycle {
-        trigger_alarm(&timer_info)?;
-        if timer_info.repeat {
-            let now = chrono::Utc::now().timestamp() + 1;
-            timer_info.start_time = now;
-            timer_info.pause_time = now;
-            timer_info.state = TimerState::Running;
-            timer_info.write_to_file()?;
-        }
-    }
 
     Ok(status)
 }
@@ -397,20 +413,9 @@ pub fn wait_for_timer() -> AppResult<()> {
         }
 
         if timer_info.is_time_run_out() {
-            trigger_alarm(&timer_info)?;
-            if timer_info.cycle_phase_index.is_some() && advance_cycle_phase(&mut timer_info)? {
-                // Phase advanced; loop continues for the next phase
+            if handle_timeout(&mut timer_info)? {
                 continue;
             }
-            if timer_info.repeat {
-                let now = chrono::Utc::now().timestamp() + 1;
-                timer_info.start_time = now;
-                timer_info.pause_time = now;
-                timer_info.state = TimerState::Running;
-                timer_info.write_to_file()?;
-                continue;
-            }
-            stop_timer()?;
             break;
         }
     }
@@ -707,10 +712,10 @@ mod tests {
 
         let cycle = crate::cycle::CycleDefinition::load_or_default();
         assert_eq!(cycle.len(), 2);
-        assert_eq!(cycle.phase(0).name, "Work");
-        assert_eq!(cycle.phase(0).minutes, 25);
-        assert_eq!(cycle.phase(1).name, "Break");
-        assert_eq!(cycle.phase(1).minutes, 5);
+        assert_eq!(cycle.phase(0).unwrap().name, "Work");
+        assert_eq!(cycle.phase(0).unwrap().minutes, 25);
+        assert_eq!(cycle.phase(1).unwrap().name, "Break");
+        assert_eq!(cycle.phase(1).unwrap().minutes, 5);
     }
 
     #[test]

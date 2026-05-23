@@ -1,4 +1,5 @@
 use crate::args::*;
+use crate::cycle::CycleDefinition;
 use crate::error::*;
 use crate::timer_info::DEFAULT_TIMER_DURATION;
 use crate::timer_info::{TimerInfo, TimerState};
@@ -15,6 +16,9 @@ use std::time::Duration;
 /// Run the application with the given arguments
 pub fn run(args: &Cli) -> AppResult<()> {
     match &args.subcmd {
+        SubCommand::SetCycle { phases } => {
+            set_cycle(phases)?;
+        }
         SubCommand::Start {
             duration,
             add,
@@ -24,6 +28,8 @@ pub fn run(args: &Cli) -> AppResult<()> {
             wait,
             resume,
             lock_screen,
+            cycle,
+            repeat,
         } => {
             let parsed_duration = parse_duration(duration.clone());
             let parsed_add = parse_duration(add.clone());
@@ -51,6 +57,8 @@ pub fn run(args: &Cli) -> AppResult<()> {
                 wait: *wait,
                 resume: *resume,
                 lock_screen: *lock_screen,
+                cycle: *cycle,
+                repeat: *repeat,
             })?;
 
             if *wait || *lock_screen {
@@ -90,6 +98,8 @@ pub struct StartTimerArgs {
     pub wait: bool,
     pub resume: bool,
     pub lock_screen: bool,
+    pub cycle: bool,
+    pub repeat: bool,
 }
 
 /// Start the timer. If the timer is already running, the duration is added to the current duration.
@@ -98,8 +108,8 @@ pub fn start_timer(args: StartTimerArgs) -> AppResult<()> {
     if let Some(time) = args.add
         && timer_info.is_running()
     {
-        // Add more time to the timer
-        timer_info.duration += time
+        // Add more time to the running timer
+        timer_info.duration += time;
     } else if timer_info.is_paused() && args.resume {
         // Resume a paused timer
         let now = chrono::Utc::now().timestamp();
@@ -112,11 +122,33 @@ pub fn start_timer(args: StartTimerArgs) -> AppResult<()> {
         timer_info.wait = timer_info.wait || args.wait;
         timer_info.lock_screen = timer_info.lock_screen || args.lock_screen;
         timer_info.state = TimerState::Running;
+    } else if args.cycle {
+        // Start the first phase of the cycle
+        let cycle = CycleDefinition::load_or_default();
+        let first = cycle.phase(0);
+        let now = chrono::Utc::now().timestamp() + 1;
+        timer_info.duration = first.minutes as i64 * 60;
+        timer_info.start_time = now;
+        timer_info.pause_time = now;
+        timer_info.message = args.message;
+        timer_info.silent = args.silent;
+        timer_info.notify = args.notify;
+        timer_info.wait = args.wait;
+        timer_info.lock_screen = args.lock_screen;
+        timer_info.state = TimerState::Running;
+        timer_info.cycle_phase_index = Some(0);
+        timer_info.cycle_total = Some(cycle.len());
+        timer_info.cycle_phase_name = first.name.clone();
+        timer_info.repeat = args.repeat;
     } else {
-        // Start a new timer
-        let duration = args
-            .duration
-            .unwrap_or(args.add.unwrap_or(DEFAULT_TIMER_DURATION));
+        // Start a new single timer; when --repeat is given without an explicit duration,
+        // reuse the previous timer's duration so the session can continue seamlessly.
+        let duration = if args.repeat && args.duration.is_none() && args.add.is_none() {
+            timer_info.duration
+        } else {
+            args.duration
+                .unwrap_or(args.add.unwrap_or(DEFAULT_TIMER_DURATION))
+        };
         let now = chrono::Utc::now().timestamp() + 1;
         timer_info.duration = duration;
         timer_info.start_time = now;
@@ -127,9 +159,59 @@ pub fn start_timer(args: StartTimerArgs) -> AppResult<()> {
         timer_info.wait = args.wait;
         timer_info.state = TimerState::Running;
         timer_info.lock_screen = args.lock_screen;
+        timer_info.cycle_phase_index = None;
+        timer_info.cycle_total = None;
+        timer_info.cycle_phase_name = String::new();
+        timer_info.repeat = args.repeat;
     }
     timer_info.write_to_file()?;
     Ok(())
+}
+
+/// Save a cycle definition from name:minutes pairs, or reset to the built-in default.
+pub fn set_cycle(phase_args: &[String]) -> AppResult<()> {
+    let cycle = if phase_args.is_empty() {
+        CycleDefinition::default_cycle()
+    } else {
+        CycleDefinition::parse_phases(phase_args)?
+    };
+    cycle.save()?;
+    println!("Cycle saved ({} phases):", cycle.len());
+    for (i, phase) in cycle.phases.iter().enumerate() {
+        println!("  {:>2}. {:<20} {} min", i + 1, phase.name, phase.minutes);
+    }
+    Ok(())
+}
+
+/// Advance a cycle timer to the next phase. Returns true if a next phase was started,
+/// false if the cycle has ended (and the caller should stop the timer).
+fn advance_cycle_phase(timer_info: &mut TimerInfo) -> AppResult<bool> {
+    let Some(current_index) = timer_info.cycle_phase_index else {
+        return Ok(false);
+    };
+    let total = timer_info.cycle_total.unwrap_or(0);
+    let next_index = current_index + 1;
+
+    let cycle = CycleDefinition::load_or_default();
+
+    let phase_index = if next_index < total && next_index < cycle.len() {
+        next_index
+    } else if timer_info.repeat {
+        0
+    } else {
+        return Ok(false);
+    };
+
+    let phase = cycle.phase(phase_index);
+    let now = chrono::Utc::now().timestamp() + 1;
+    timer_info.duration = phase.minutes as i64 * 60;
+    timer_info.start_time = now;
+    timer_info.pause_time = now;
+    timer_info.cycle_phase_index = Some(phase_index);
+    timer_info.cycle_phase_name = phase.name.clone();
+    timer_info.state = TimerState::Running;
+    timer_info.write_to_file()?;
+    Ok(true)
 }
 
 /// Pause the timer. If the timer is already paused, the timer is resumed.
@@ -231,8 +313,19 @@ pub fn get_status(
     let mut timer_info = TimerInfo::from_file_or_default()?;
 
     let timed_out = timer_info.is_running() && !timer_info.wait && timer_info.is_time_run_out();
-    if timed_out {
-        stop_timer()?;
+    let is_cycle = timer_info.cycle_phase_index.is_some();
+
+    if timed_out && is_cycle {
+        // Trigger alarm for the completed phase, then advance to the next one
+        trigger_alarm(&timer_info)?;
+        if !advance_cycle_phase(&mut timer_info)? {
+            stop_timer()?;
+            timer_info.state = TimerState::Finished;
+        }
+    } else if timed_out {
+        if !timer_info.repeat {
+            stop_timer()?;
+        }
         timer_info.state = TimerState::Finished;
     }
 
@@ -241,9 +334,17 @@ pub fn get_status(
         _ => timer_info.get_human_readable(time_format.unwrap_or_default()),
     };
 
-    if timed_out {
+    if timed_out && !is_cycle {
         trigger_alarm(&timer_info)?;
+        if timer_info.repeat {
+            let now = chrono::Utc::now().timestamp() + 1;
+            timer_info.start_time = now;
+            timer_info.pause_time = now;
+            timer_info.state = TimerState::Running;
+            timer_info.write_to_file()?;
+        }
     }
+
     Ok(status)
 }
 
@@ -264,19 +365,12 @@ pub fn watch_status(
 
 /// Wait for the timer to finish, displaying a progress bar.
 ///
-/// This function blocks until the timer completes or is stopped.
-/// It displays a progress bar that updates every second.
-///
-/// # Errors
-/// Returns an error if:
-/// - Unable to read timer state file
-/// - Terminal control operations fail
-/// - Timer alarm fails to trigger
+/// Blocks until all phases complete (cycle mode) or the single timer expires/is stopped.
 pub fn wait_for_timer() -> AppResult<()> {
     let mut stdout = std::io::stdout();
 
     loop {
-        let timer_info = TimerInfo::from_file_or_default()?;
+        let mut timer_info = TimerInfo::from_file_or_default()?;
 
         let percentage = (timer_info.get_percentage() / 4.0).clamp(0.0, 25.0) as i64;
         print!("|");
@@ -303,8 +397,20 @@ pub fn wait_for_timer() -> AppResult<()> {
         }
 
         if timer_info.is_time_run_out() {
-            stop_timer()?;
             trigger_alarm(&timer_info)?;
+            if timer_info.cycle_phase_index.is_some() && advance_cycle_phase(&mut timer_info)? {
+                // Phase advanced; loop continues for the next phase
+                continue;
+            }
+            if timer_info.repeat {
+                let now = chrono::Utc::now().timestamp() + 1;
+                timer_info.start_time = now;
+                timer_info.pause_time = now;
+                timer_info.state = TimerState::Running;
+                timer_info.write_to_file()?;
+                continue;
+            }
+            stop_timer()?;
             break;
         }
     }
@@ -589,5 +695,263 @@ mod tests {
 
         let result = stop_timer();
         assert!(result.is_ok());
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_cycle_saves_phases() {
+        let _temp = setup_test_env();
+
+        let phases = vec!["Work:25".to_string(), "Break:5".to_string()];
+        set_cycle(&phases).unwrap();
+
+        let cycle = crate::cycle::CycleDefinition::load_or_default();
+        assert_eq!(cycle.len(), 2);
+        assert_eq!(cycle.phase(0).name, "Work");
+        assert_eq!(cycle.phase(0).minutes, 25);
+        assert_eq!(cycle.phase(1).name, "Break");
+        assert_eq!(cycle.phase(1).minutes, 5);
+    }
+
+    #[test]
+    #[serial]
+    fn test_set_cycle_no_args_resets_to_default() {
+        let _temp = setup_test_env();
+
+        set_cycle(&[]).unwrap();
+
+        let cycle = crate::cycle::CycleDefinition::load_or_default();
+        assert_eq!(cycle.len(), 8);
+    }
+
+    #[test]
+    #[serial]
+    fn test_start_cycle_uses_first_phase() {
+        let _temp = setup_test_env();
+
+        let phases = vec!["Focus:30".to_string(), "Rest:10".to_string()];
+        set_cycle(&phases).unwrap();
+
+        start_timer(StartTimerArgs {
+            cycle: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Running);
+        assert_eq!(timer_info.duration, 30 * 60);
+        assert_eq!(timer_info.cycle_phase_index, Some(0));
+        assert_eq!(timer_info.cycle_total, Some(2));
+        assert_eq!(timer_info.cycle_phase_name, "Focus");
+        assert!(!timer_info.repeat);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_start_cycle_with_repeat() {
+        let _temp = setup_test_env();
+
+        start_timer(StartTimerArgs {
+            cycle: true,
+            repeat: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert!(timer_info.repeat);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_advance_cycle_phase_moves_to_next() {
+        let _temp = setup_test_env();
+
+        let phases = vec!["Work:25".to_string(), "Break:5".to_string()];
+        set_cycle(&phases).unwrap();
+
+        start_timer(StartTimerArgs {
+            cycle: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.cycle_phase_index, Some(0));
+
+        let advanced = advance_cycle_phase(&mut timer_info).unwrap();
+        assert!(advanced);
+        assert_eq!(timer_info.cycle_phase_index, Some(1));
+        assert_eq!(timer_info.cycle_phase_name, "Break");
+        assert_eq!(timer_info.duration, 5 * 60);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_advance_cycle_phase_returns_false_at_end() {
+        let _temp = setup_test_env();
+
+        let phases = vec!["Work:25".to_string(), "Break:5".to_string()];
+        set_cycle(&phases).unwrap();
+
+        start_timer(StartTimerArgs {
+            cycle: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut timer_info = TimerInfo::from_file_or_default().unwrap();
+        // Manually set to last phase
+        timer_info.cycle_phase_index = Some(1);
+        timer_info.write_to_file().unwrap();
+
+        let advanced = advance_cycle_phase(&mut timer_info).unwrap();
+        assert!(!advanced);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_advance_cycle_phase_repeats_when_repeat_true() {
+        let _temp = setup_test_env();
+
+        let phases = vec!["Work:25".to_string(), "Break:5".to_string()];
+        set_cycle(&phases).unwrap();
+
+        start_timer(StartTimerArgs {
+            cycle: true,
+            repeat: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let mut timer_info = TimerInfo::from_file_or_default().unwrap();
+        timer_info.cycle_phase_index = Some(1);
+        timer_info.write_to_file().unwrap();
+
+        let advanced = advance_cycle_phase(&mut timer_info).unwrap();
+        assert!(advanced);
+        assert_eq!(timer_info.cycle_phase_index, Some(0));
+        assert_eq!(timer_info.cycle_phase_name, "Work");
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_repeat_flag_reuses_previous_duration() {
+        let _temp = setup_test_env();
+
+        start_timer(StartTimerArgs {
+            duration: Some(300),
+            ..Default::default()
+        })
+        .unwrap();
+        stop_timer().unwrap();
+
+        start_timer(StartTimerArgs {
+            repeat: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Running);
+        assert_eq!(timer_info.duration, 300);
+        assert_eq!(timer_info.cycle_phase_index, None);
+        assert!(timer_info.repeat);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_repeat_flag_no_previous_timer_uses_default_duration() {
+        let _temp = setup_test_env();
+        TimerInfo::remove_info_file().ok();
+
+        start_timer(StartTimerArgs {
+            repeat: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let timer_info = TimerInfo::from_file_or_default().unwrap();
+        assert_eq!(timer_info.state, TimerState::Running);
+        assert_eq!(timer_info.duration, DEFAULT_TIMER_DURATION);
+        assert!(timer_info.repeat);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_status_shows_cycle_label() {
+        let _temp = setup_test_env();
+
+        let phases = vec!["Deep Work:50".to_string(), "Rest:10".to_string()];
+        set_cycle(&phases).unwrap();
+
+        start_timer(StartTimerArgs {
+            cycle: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let status = get_status(Some(StatusFormat::Human), Some(TimeFormat::Digital)).unwrap();
+        assert!(status.contains("[Deep Work 1/2]"), "status was: {}", status);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_status_json_includes_cycle_fields() {
+        let _temp = setup_test_env();
+
+        let phases = vec!["Work:25".to_string(), "Break:5".to_string()];
+        set_cycle(&phases).unwrap();
+
+        start_timer(StartTimerArgs {
+            cycle: true,
+            ..Default::default()
+        })
+        .unwrap();
+
+        let status = get_status(Some(StatusFormat::Json), Some(TimeFormat::Digital)).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&status).unwrap();
+        assert_eq!(json["cycle_phase"], "Work");
+        assert_eq!(json["cycle_index"], 1);
+        assert_eq!(json["cycle_total"], 2);
+
+        let _ = TimerInfo::remove_info_file();
+    }
+
+    #[test]
+    #[serial]
+    fn test_plain_timer_status_has_no_cycle_fields() {
+        let _temp = setup_test_env();
+
+        start_timer(StartTimerArgs {
+            duration: Some(60),
+            ..Default::default()
+        })
+        .unwrap();
+
+        let status = get_status(Some(StatusFormat::Json), Some(TimeFormat::Digital)).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&status).unwrap();
+        assert!(json.get("cycle_phase").is_none());
+        assert!(json.get("cycle_index").is_none());
+        assert!(json.get("cycle_total").is_none());
+
+        let _ = TimerInfo::remove_info_file();
     }
 }

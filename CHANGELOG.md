@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1] - 2026-05-23
+
+### Added
+- `set-cycle` command to define a custom Pomodoro cycle stored in `~/.config/pomodoro-cli/cycle.json`; no arguments resets to the built-in default (4×25 min work + short/long breaks)
+- `--cycle` flag for `start` to run the saved cycle with automatic phase advancement on completion
+- `--repeat` flag for `start` to loop a single timer indefinitely using the previous duration, or loop an entire cycle when combined with `--cycle`
+
 ## [1.3.2] - 2026-05-19
 
 ### Fixed

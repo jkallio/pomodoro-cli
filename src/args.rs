@@ -55,11 +55,35 @@ pub enum SubCommand {
             help = "Lock the screen when the timer finishes"
         )]
         lock_screen: bool,
+
+        #[arg(
+            long,
+            default_value_t = false,
+            conflicts_with = "duration",
+            help = "Run the saved Pomodoro cycle instead of a single timer"
+        )]
+        cycle: bool,
+
+        #[arg(
+            long,
+            default_value_t = false,
+            help = "Repeat the previous timer, or the cycle"
+        )]
+        repeat: bool,
     },
     /// Stop the timer
     Stop,
     /// Pause/Resume the timer
     Pause,
+    /// Define a custom Pomodoro cycle (stored in ~/.config/pomodoro-cli/cycle.json)
+    SetCycle {
+        #[arg(
+            value_name = "NAME:MINUTES",
+            help = "Phase definitions as 'Name:minutes' pairs (e.g. 'Work:25' 'Break:5'). \
+                    No arguments resets to the built-in default (4×25 min work + short/long breaks)."
+        )]
+        phases: Vec<String>,
+    },
     /// Get the current status of the timer
     Status {
         #[arg(short, long, help = "Status format")]

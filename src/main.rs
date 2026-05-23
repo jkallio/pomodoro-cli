@@ -1,5 +1,6 @@
 mod app;
 mod args;
+mod cycle;
 mod error;
 mod timer_info;
 mod utils;

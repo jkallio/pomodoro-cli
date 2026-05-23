@@ -38,6 +38,8 @@ $ cargo install pomodoro-cli
 - [x] Easy Waybar integration (streaming daemon mode)
 - [x] Customize notification icon and alarm sound
 - [x] Lock the screen when the timer expires
+- [x] Run a configurable Pomodoro cycle with automatic phase advancement
+- [x] Repeat a timer or cycle indefinitely
 
 
 # Usage
@@ -52,6 +54,8 @@ Options for `start`:
 - `--watch` Stream status continuously for Waybar
 - `--wait` Wait for the timer to finish (default: disabled)
 - `--lock-screen` Wait for the timer to finish, then lock the screen (default: disabled)
+- `--cycle` Run the saved Pomodoro cycle instead of a single timer (conflicts with `--duration`)
+- `--repeat` Repeat the previous timer automatically; combined with `--cycle` loops the whole cycle indefinitely
 
 ### Start/Stop the timer
 
@@ -81,6 +85,54 @@ $ pomodoro-cli start --resume
 ```bash
 # Add 10 minutes to the timer (instead of starting a new timer)
 $ pomodoro-cli start --add 10m
+```
+
+### Run a Pomodoro cycle
+
+A cycle is a sequence of named phases (e.g. Work → Break) that advance automatically when each phase finishes.
+
+```bash
+# Define a custom cycle (saved to ~/.config/pomodoro-cli/cycle.json)
+$ pomodoro-cli set-cycle 'Work:25' 'Short Break:5' 'Work:25' 'Long Break:15'
+
+# Reset the cycle to the built-in default (4×25 min work + short/long breaks)
+$ pomodoro-cli set-cycle
+
+# Start the cycle — phases advance automatically on completion
+$ pomodoro-cli start --cycle
+
+# Start the cycle and loop it indefinitely when all phases finish
+$ pomodoro-cli start --cycle --repeat
+
+# Start the cycle, wait in the foreground, and show a progress bar
+$ pomodoro-cli start --cycle --wait
+```
+
+The status output shows the current phase name and position while a cycle is active:
+
+```
+25:00 [Work 1/4]
+```
+
+JSON output gains three extra fields during a cycle:
+
+```json
+{ "cycle_phase": "Work", "cycle_index": 1, "cycle_total": 4, ... }
+```
+
+### Repeat the previous timer / cycle
+
+`--repeat` keeps a single timer running by automatically restarting it with the same duration each time it expires. If no timer has been run before, the default 25-minute duration is used.
+
+```bash
+# Repeat the last timer duration indefinitely (auto-restarts on expiry)
+$ pomodoro-cli start --repeat
+
+# Repeat with an explicit duration
+$ pomodoro-cli start --duration 30m --repeat
+
+# Repeat the entire cycle
+$ pomodoro-cli start --cycle --repeat
 ```
 
 ### Query the timer status
@@ -160,7 +212,7 @@ In `--watch` mode, the display updates every second automatically. If you also w
 
 # Customization
 
-Custom files are loaded from `~/.config/pomodoro-cli/`. Create the directory once if it doesn't exist:
+Custom files are loaded from `~/.config/pomodoro-cli/`. Create the directory once if it doesn't exist. The `set-cycle` command stores its cycle definition there as `cycle.json`.
 
 ```bash
 $ mkdir -p ~/.config/pomodoro-cli

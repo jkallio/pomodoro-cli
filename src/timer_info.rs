@@ -27,7 +27,17 @@ pub struct TimerInfo {
     pub silent: bool,
     pub notify: bool,
     pub wait: bool,
+    pub repeat: bool,
     pub lock_screen: bool,
+    /// 0-based index of the current cycle phase; absent when no cycle is active
+    #[serde(default)]
+    pub cycle_phase_index: Option<usize>,
+    /// Total number of phases in the active cycle
+    #[serde(default)]
+    pub cycle_total: Option<usize>,
+    /// Human-readable name of the current cycle phase
+    #[serde(default)]
+    pub cycle_phase_name: String,
 }
 
 #[derive(Serialize)]
@@ -36,6 +46,12 @@ pub struct WaybarTimerInfo {
     pub tooltip: String,
     pub class: String,
     pub percentage: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cycle_phase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cycle_index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cycle_total: Option<usize>,
 }
 
 /// Implement default for TimerInfo
@@ -52,6 +68,10 @@ impl Default for TimerInfo {
             notify: false,
             wait: false,
             lock_screen: false,
+            cycle_phase_index: None,
+            cycle_total: None,
+            cycle_phase_name: String::new(),
+            repeat: false,
         }
     }
 }
@@ -103,37 +123,74 @@ impl TimerInfo {
     /// Returns the info in human readable format.
     pub fn get_human_readable(&self, time_format: TimeFormat) -> String {
         let mut text = convert_to_time_format(self.get_time_left(), time_format);
+        let has_cycle = self.cycle_phase_index.is_some() && self.cycle_total.is_some();
         match self.state {
-            TimerState::Running if !self.message.is_empty() => {
-                text = format!("{} - {}", text, self.message)
+            TimerState::Running => {
+                if has_cycle {
+                    text = format!(
+                        "{} [{} {}/{}]",
+                        text,
+                        self.cycle_phase_name,
+                        self.cycle_phase_index.unwrap() + 1,
+                        self.cycle_total.unwrap(),
+                    );
+                } else if !self.message.is_empty() {
+                    text = format!("{} - {}", text, self.message);
+                }
             }
-            TimerState::Paused => text = format!("{} - Paused", text),
+            TimerState::Paused => {
+                if has_cycle {
+                    text = format!(
+                        "{} [{} {}/{}] - Paused",
+                        text,
+                        self.cycle_phase_name,
+                        self.cycle_phase_index.unwrap() + 1,
+                        self.cycle_total.unwrap(),
+                    );
+                } else {
+                    text = format!("{} - Paused", text);
+                }
+            }
             TimerState::Finished => text = format!("{} - Time is up!", text),
-            _ => {}
         }
         text
     }
 
     /// Returns the info in Waybar JSON format.
     pub fn get_json_info(&self, time_format: TimeFormat) -> AppResult<String> {
+        let has_cycle = self.cycle_phase_index.is_some() && self.cycle_total.is_some();
         let mut text = convert_to_time_format(self.get_time_left(), time_format);
         match self.state {
+            TimerState::Running if has_cycle => {
+                text = format!("{} - {}", text, self.cycle_phase_name)
+            }
             TimerState::Running if !self.message.is_empty() => {
                 text = format!("{} - {}", text, self.message)
+            }
+            TimerState::Paused if has_cycle => {
+                text = format!("{} - {} - Paused", text, self.cycle_phase_name)
             }
             TimerState::Paused => text = format!("{} - Paused", text),
             _ => {}
         }
         let tooltip = match self.state {
+            TimerState::Running if has_cycle => format!(
+                "{} ({}/{})\nLeft: {}\nElapsed: {}",
+                self.cycle_phase_name,
+                self.cycle_phase_index.unwrap() + 1,
+                self.cycle_total.unwrap(),
+                convert_to_time_format(self.get_time_left(), time_format),
+                convert_to_time_format(self.get_time_elapsed(), time_format),
+            ),
             TimerState::Running => format!(
                 "Running\nLeft: {}\nElapsed: {}",
                 convert_to_time_format(self.get_time_left(), time_format),
-                convert_to_time_format(self.get_time_elapsed(), time_format)
+                convert_to_time_format(self.get_time_elapsed(), time_format),
             ),
             TimerState::Paused => format!(
                 "Paused\nLeft: {}\nElapsed: {}",
                 convert_to_time_format(self.get_time_left(), time_format),
-                convert_to_time_format(self.get_time_elapsed(), time_format)
+                convert_to_time_format(self.get_time_elapsed(), time_format),
             ),
             TimerState::Finished => "Finished".to_string(),
         };
@@ -147,6 +204,9 @@ impl TimerInfo {
             tooltip,
             class: class.to_string(),
             percentage: self.get_percentage(),
+            cycle_phase: has_cycle.then(|| self.cycle_phase_name.clone()),
+            cycle_index: has_cycle.then(|| self.cycle_phase_index.unwrap() + 1),
+            cycle_total: has_cycle.then(|| self.cycle_total.unwrap()),
         };
         Ok(serde_json::to_string(&waybar_info)?)
     }

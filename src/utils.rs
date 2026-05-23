@@ -23,6 +23,21 @@ pub fn get_timer_info_file() -> PathBuf {
     path
 }
 
+/// Return the path to the cycle definition file (`~/.config/pomodoro-cli/cycle.json`).
+pub fn get_cycle_file() -> PathBuf {
+    if let Ok(test_dir) = std::env::var("POMODORO_CLI_TEST_DIR") {
+        let mut path = PathBuf::from(test_dir);
+        path.push("cycle.json");
+        return path;
+    }
+    if let Some(mut path) = dirs::config_dir() {
+        path.push("pomodoro-cli");
+        path.push("cycle.json");
+        return path;
+    }
+    PathBuf::from("cycle.json")
+}
+
 /// Return the path to the custom audio file for the alarm. This is the ~/.config directory on Linux.
 /// In case the audio file is not found, `None` is returned.
 pub fn get_custom_alarm_file() -> Option<PathBuf> {
